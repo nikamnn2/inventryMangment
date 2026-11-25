@@ -1,0 +1,28 @@
+/* Purpose: bundle table helpers and the printable label (details grid, barcode and QR boxes). */
+.small { font-size: 13.5px; }
+.nowrap { white-space: nowrap; }
+.mono-id { font-family: ui-monospace, Consolas, monospace; font-size: 16px; }
+
+.label { display: grid; gap: 14px; text-align: left; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.label-title { margin: 0; font-size: 20px; }
+.label-head { display: grid; gap: 4px; padding: 14px; border: 1px solid #f2c94c; border-radius: 10px; background: #fff8dc; }
+.label-head > strong { font-size: 22px; overflow-wrap: anywhere; }
+.label-status { font-size: 14px; font-weight: 700; color: var(--red); }
+.label-status.packed { color: var(--green); }
+.label-status.shipped { color: var(--blue); }
+.label-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.label-facts > div { padding: 12px 14px; border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.label-facts small { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+.label-facts strong { font-size: 17px; overflow-wrap: anywhere; }
+.label-modal { max-width: 760px; overflow-x: hidden; }
+.label-codes { display: flex; flex-wrap: nowrap; justify-content: center; align-items: flex-start; gap: 20px; }
+.label-codes figure { margin: 0; min-width: 0; display: grid; gap: 6px; justify-items: center; }
+.label-codes figcaption { font-size: 14px; color: var(--muted); }
+.code-box { display: grid; gap: 4px; justify-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+/* keep barcode and QR on one line: on narrow screens the barcode shrinks instead of wrapping or scrolling */
+.code-box ::ng-deep svg { max-width: 100%; }
+@media (max-width: 560px) { .label-codes { gap: 10px; } .code-box { padding: 6px; } }
+
+/* title on the left, print + close icons top right */
+.label-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.label-tools { display: flex; gap: 6px; }

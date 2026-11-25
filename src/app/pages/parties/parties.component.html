@@ -1,0 +1,19 @@
+<!-- Purpose: card list of customers or suppliers (shared by both pages). -->
+<div class="page-head">
+  <div><h1>{{ title() }}</h1><p>{{ subtitle() }}</p></div>
+  <button class="btn primary" type="button"><app-icon name="plus" [size]="16" /> Add {{ singular() }}</button>
+</div>
+
+<div class="grid cols-3">
+  @for (p of list(); track p.name) {
+    <div class="card party">
+      <div class="top">
+        <span class="logo">{{ initials(p.name) }}</span>
+        <span class="badge" [class]="badgeClass(p.status)">{{ p.status }}</span>
+      </div>
+      <strong>{{ p.name }}</strong>
+      <div class="card-note">{{ p.city }} · {{ p.contact }}</div>
+      <div class="detail">{{ p.detail }}</div>
+    </div>
+  }
+</div>

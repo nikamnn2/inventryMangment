@@ -1,0 +1,46 @@
+<!-- Purpose: Reports page: period tabs, totals, sales table and packing table with CSV download buttons. -->
+<div class="page-head">
+  <div><h1>Reports</h1><p>Packing and sales summaries for the selected period.</p></div>
+  <div class="chips" role="group" aria-label="Date range">
+    @for (r of ranges; track r) {
+      <button type="button" class="chip" [class.active]="range() === r" (click)="select(r)">{{ r }}</button>
+    }
+  </div>
+</div>
+
+@if (error()) { <div class="notice err" role="alert" style="margin-bottom:16px">{{ error() }}</div> }
+
+<div class="grid cols-4">
+  <div class="card"><div class="card-note">Revenue</div><div class="big">₹ {{ report().totals.revenue | number }}</div></div>
+  <div class="card"><div class="card-note">Weight sold</div><div class="big">{{ report().totals.weightSold | number: '1.0-1' }}<small> kg</small></div></div>
+  <div class="card"><div class="card-note">Bills issued</div><div class="big">{{ report().totals.bills }}</div></div>
+  <div class="card"><div class="card-note">Bundles packed</div><div class="big">{{ report().totals.bundlesPacked }}</div></div>
+</div>
+
+<div class="card mt">
+  <div class="card-head">
+    <div><div class="card-title">Sales</div><div class="card-note">{{ report().sales.length }} bills in range</div></div>
+    <button class="btn sm" type="button" (click)="exportCsv('sales')"><app-icon name="download" [size]="14" /> Export CSV</button>
+  </div>
+  <div class="table-wrap"><table class="tbl stack">
+    <thead><tr><th>Bill</th><th>Date &amp; time</th><th>Customer</th><th>Product</th><th class="right">Pcs</th><th class="right">Weight</th><th class="right">Amount</th></tr></thead>
+    <tbody>
+      @for (s of report().sales; track s.id) {
+        <tr><td class="mono" data-label="Bill">{{ s.id }}</td><td data-label="Date & time">{{ s.date }}</td><td data-label="Customer">{{ s.customer }}</td><td data-label="Product">{{ s.product }}</td><td class="right" data-label="Pcs">{{ s.pcs }}</td><td class="right" data-label="Weight">{{ s.weight | number: '1.1-2' }} kg</td><td class="right" data-label="Amount">₹ {{ s.amount | number }}</td></tr>
+      } @empty { <tr><td colspan="7" class="muted">No sales in this period.</td></tr> }
+    </tbody></table></div>
+</div>
+
+<div class="card mt">
+  <div class="card-head">
+    <div><div class="card-title">Packing</div><div class="card-note">{{ report().packing.length }} bundles packed in range</div></div>
+    <button class="btn sm" type="button" (click)="exportCsv('packing')"><app-icon name="download" [size]="14" /> Export CSV</button>
+  </div>
+  <div class="table-wrap"><table class="tbl stack">
+    <thead><tr><th>Bundle ID</th><th>Product</th><th>Packed</th><th class="right">Pieces</th><th class="right">Weight</th><th>Status</th></tr></thead>
+    <tbody>
+      @for (b of report().packing; track b.id) {
+        <tr><td class="mono" data-label="Bundle ID">{{ b.id }}</td><td data-label="Product">{{ b.productName }}</td><td data-label="Packed">{{ b.packed }}</td><td class="right" data-label="Pieces">{{ b.pieces }}</td><td class="right" data-label="Weight">{{ b.weight | number: '1.1-2' }} kg</td><td data-label="Status"><span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span></td></tr>
+      } @empty { <tr><td colspan="6" class="muted">No bundles packed in this period.</td></tr> }
+    </tbody></table></div>
+</div>

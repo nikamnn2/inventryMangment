@@ -1,0 +1,52 @@
+<!-- Purpose: Stock Overview page: category totals, filters (search / scan, state, product) and the bundle table. -->
+<div class="page-head">
+  <div><h1>Stock Overview</h1><p>Current stock grouped by product.</p></div>
+  <button class="btn" type="button" (click)="exportCsv()"><app-icon name="download" [size]="16" /> Export CSV</button>
+</div>
+
+<div class="grid cols-3">
+  @for (s of summary(); track s.cat) {
+    <div class="card">
+      <div class="card-note">{{ s.cat }}</div>
+      <div class="big">{{ s.pcs }}<small> pcs</small></div>
+      <div class="card-note">{{ s.weight | number: '1.0-0' }} kg · {{ s.bundles }} bundles</div>
+      <div class="meter"><i [class.glass]="s.cat === 'Glass'" [style.width.%]="s.share"></i></div>
+    </div>
+  }
+  <div class="card">
+    <div class="card-note">Low-stock bundles</div>
+    <div class="big warn">{{ data.lowStock().length }}</div>
+    <div class="card-note">Below {{ data.lowLimit() }} pcs threshold</div>
+  </div>
+</div>
+
+<div class="card mt">
+  <div class="card-head">
+    <div><div class="card-title">Products and their bundles</div><div class="card-note">{{ rows().length }} bundles shown</div></div>
+    <div class="row">
+      <input class="input scan" type="search" name="scan" placeholder="Scan barcode or search…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+      <select class="input sel" name="state" [ngModel]="state()" (ngModelChange)="state.set($event)" aria-label="Availability">
+        <option value="all">All</option><option value="available">Available</option><option value="sold">Sold</option>
+      </select>
+      <select class="input sel" name="profile" [ngModel]="profile()" (ngModelChange)="profile.set($event)" aria-label="Product filter">
+        <option value="">All products</option>
+        @for (p of data.products(); track p.code) { <option [value]="p.code">{{ p.name }}</option> }
+      </select>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="tbl stack">
+      <thead><tr><th>Product</th><th>Die No</th><th>Bundle ID</th><th>Rack</th><th class="right">Pieces</th><th class="right">Weight</th><th>Status</th></tr></thead>
+      <tbody>
+        @for (b of rows(); track b.id) {
+          <tr>
+            <td data-label="Product"><strong>{{ data.productName(b.code) }}</strong></td><td class="mono" data-label="Die No">{{ b.code }}</td><td class="mono" data-label="Bundle ID">{{ b.id }}</td><td data-label="Rack">{{ b.rack }}</td>
+            <td class="right" data-label="Pieces">{{ b.pieces }} @if (b.pieces > 0 && b.pieces < data.lowLimit()) { <span class="badge warn">Low</span> }</td>
+            <td class="right" data-label="Weight">{{ b.weight | number: '1.1-2' }} kg</td>
+            <td data-label="Status"><span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span></td>
+          </tr>
+        } @empty { <tr><td colspan="7" class="muted">No bundles match these filters.</td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>

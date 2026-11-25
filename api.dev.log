@@ -1,0 +1,10 @@
+
+> invenza-api@1.0.0 dev
+> node --watch src/server.js
+
+Change detected in 'e:\\Projects\\4.inventry\\inventryMangment\\server\\node_modules\\lodash.once\\index.js'
+Restarting 'src/server.js'
+Invenza API on :3000 · db "inventryManagment" · pool 2-20
+Change detected in 'e:\\Projects\\4.inventry\\inventryMangment\\server\\node_modules\\iconv-lite\\encodings\\dbcs-data.js'
+Restarting 'src/server.js'
+Invenza API on :3000 · db "inventryManagment" · pool 2-20

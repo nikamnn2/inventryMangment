@@ -1,0 +1,81 @@
+<!-- Purpose: sign-in page: brand panel on the left, e-mail + password card on the right. -->
+<div class="login">
+  <!-- Brand / visual side -->
+  <section class="hero" aria-hidden="false">
+    <div class="hero-bg" aria-hidden="true">
+      <!-- aluminium extrusion bars -->
+      <span class="bar b1"></span>
+      <span class="bar b2"></span>
+      <span class="bar b3"></span>
+      <!-- glass panes -->
+      <span class="pane p1"></span>
+      <span class="pane p2"></span>
+      <span class="pane p3"></span>
+    </div>
+
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><i></i></span>
+      <div>
+        <strong>Invenza</strong>
+        <small>Aluminium &amp; Glass Inventory</small>
+      </div>
+    </div>
+
+    <div class="pitch">
+      <h1>Every profile.<br />Every pane.<br /><em>Always accounted for.</em></h1>
+      <p>Track aluminium extrusions, glass sheets and bundles from the press to the site — with live stock, weights and billing in one place.</p>
+      <ul>
+        <li><app-icon name="layers" /> Bundle &amp; barcode tracking</li>
+        <li><app-icon name="scale" /> Weight-based stock &amp; billing</li>
+        <li><app-icon name="alert" /> Low-stock alerts per product</li>
+      </ul>
+    </div>
+
+    <footer>© 2026 Invenza · Sahyadri Infotech</footer>
+  </section>
+
+  <!-- Form side -->
+  <section class="panel">
+    <!-- Sign-in form. When login is switched off for demos the fields are optional. -->
+    <form class="glass-card" (submit)="signIn($event, user.value, pw.value)">
+      <div class="mobile-brand">
+        <span class="mark" aria-hidden="true"><i></i></span>
+        <strong>Invenza</strong>
+      </div>
+
+      <h2>Welcome back</h2>
+      <p class="lead">Sign in to manage your stock.</p>
+
+      <div class="field">
+        <label for="user">Username or email</label>
+        <div class="control">
+          <app-icon name="user" />
+          <input #user id="user" name="user" type="text" autocomplete="username" placeholder="you@company.com" value="admin@invenza.com" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="pw">Password</label>
+        <div class="control">
+          <app-icon name="lock" />
+          <input #pw id="pw" name="pw" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password" placeholder="••••••••" value="aluminium" required />
+          <button type="button" class="peek" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+            <app-icon name="eye" [size]="17" />
+          </button>
+        </div>
+      </div>
+
+      <div class="options">
+        <label class="check"><input type="checkbox" checked /> Keep me signed in</label>
+        <a href="#" (click)="$event.preventDefault()">Forgot password?</a>
+      </div>
+
+      <button class="submit" type="submit" [disabled]="loading()">
+        @if (loading()) { Signing in… } @else { Sign in <app-icon name="arrow" [size]="17" /> }
+      </button>
+
+      @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+      <p class="hint">@if (authDisabled) { Login is temporarily disabled · just click Sign in } @else { Demo account · admin&#64;invenza.com / aluminium }</p>
+    </form>
+  </section>
+</div>

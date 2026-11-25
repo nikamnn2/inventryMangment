@@ -1,0 +1,32 @@
+<!-- Purpose: Settings form: company details, low-stock threshold and per-kg rates. -->
+<div class="page-head">
+  <div><h1>Settings</h1><p>Company details, alerts and billing defaults.</p></div>
+</div>
+
+<form class="grid cols-1-1" (submit)="save($event)">
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">Company</div><div class="card-note">Shown on bills and labels</div></div></div>
+    <div class="form-grid">
+      <div class="field wide"><label>Company name</label><input class="input" name="company" [(ngModel)]="form.company" /></div>
+      <div class="field"><label>GSTIN</label><input class="input" name="gst" [(ngModel)]="form.gstin" placeholder="27ABCDE1234F1Z5" /></div>
+      <div class="field"><label>Phone</label><input class="input" name="phone" [(ngModel)]="form.phone" placeholder="+91 …" /></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">Stock &amp; billing</div><div class="card-note">Thresholds and default rates</div></div></div>
+    <div class="form-grid">
+      <div class="field"><label>Low-stock threshold (pcs)</label><input class="input" type="number" min="1" name="limit" [(ngModel)]="form.lowStockLimit" /></div>
+      <div class="field"><label>Weight unit</label>
+        <select class="input" name="unit" [(ngModel)]="form.weightUnit"><option value="kg">Kilograms (kg)</option><option value="tonnes">Tonnes</option></select></div>
+      <div class="field"><label>Aluminium rate (₹ / kg)</label><input class="input" type="number" min="0" name="al" [(ngModel)]="form.rates.Aluminium" /></div>
+      <div class="field"><label>Glass rate (₹ / kg)</label><input class="input" type="number" min="0" name="gl" [(ngModel)]="form.rates.Glass" /></div>
+    </div>
+  </div>
+
+  <div class="wide-row">
+    @if (error()) { <span class="notice err" role="alert">{{ error() }}</span> }
+    @if (saved()) { <span class="notice ok">Settings saved.</span> }
+    <button class="btn primary" type="submit">Save changes</button>
+  </div>
+</form>

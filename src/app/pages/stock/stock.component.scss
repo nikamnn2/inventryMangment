@@ -1,0 +1,8 @@
+/* Purpose: stock overview styles. */
+.big { font-size: 32px; font-weight: 650; letter-spacing: -1px; margin: 6px 0 2px; }
+.big small { font-size: 16px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+.big.warn { color: var(--amber); }
+.meter { height: 6px; border-radius: 99px; background: var(--line); margin-top: 14px; overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #aab4be, #6c7885); }
+.meter i.glass { background: linear-gradient(90deg, #8fdcee, #1f93b2); }
+.scan { width: 220px; } .sel { width: 160px; }

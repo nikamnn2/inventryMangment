@@ -1,0 +1,137 @@
+<!-- Purpose: dashboard: greeting, KPI tiles, stock-by-bundle bars, status donut, sales trend, low-stock alerts and recent bundles. -->
+<section class="hero">
+  <div class="hero-main">
+    <h1>Good day, Nikhil 👋</h1>
+    <p>Here is your aluminium &amp; glass stock at a glance.</p>
+    <!-- today's numbers -->
+    <div class="hero-stats">
+      <div><b>{{ today().packed }}</b><span>bundles packed today</span></div>
+      <div><b>{{ today().sales }}</b><span>bills today</span></div>
+      <div><b>₹ {{ today().revenue.toLocaleString('en-IN') }}</b><span>revenue today</span></div>
+      <div><b>{{ soldBundles() }}</b><span>bundles sold out</span></div>
+    </div>
+  </div>
+  <div class="hero-side">
+    <span class="status-ok"><i></i>System online</span>
+    <div class="row">
+      <button class="btn" type="button"><app-icon name="download" [size]="16" /> Export report</button>
+      <a class="btn primary" routerLink="/bundles"><app-icon name="plus" [size]="16" /> New bundle</a>
+    </div>
+  </div>
+</section>
+
+<div class="grid cols-4 mt">
+  @for (k of kpis(); track k.label) {
+    <div class="card kpi">
+      <span class="kpi-icon" [class]="k.tone"><app-icon [name]="k.icon" [size]="20" /></span>
+      <div>
+        <div class="kpi-label">{{ k.label }}</div>
+        <div class="kpi-value">{{ k.value }}<small>{{ k.unit }}</small></div>
+        <div class="kpi-note">{{ k.note }}</div>
+      </div>
+    </div>
+  }
+</div>
+
+<div class="grid cols-2-1 mt">
+  <div class="card">
+    <div class="card-head">
+      <!-- Bar chart: pieces left in every bundle. -->
+      <div><div class="card-title">Stock by bundle</div><div class="card-note">Available pieces in each bundle</div></div>
+      <span class="tag">PCS</span>
+    </div>
+    <div class="bars" role="img" aria-label="Pieces available per bundle">
+      @for (b of bars(); track b.id) {
+        <div class="bar-col">
+          <span class="bar-val">{{ b.pieces }}</span>
+          <div class="bar" [class.glass]="b.glass" [class.low]="b.low" [style.height.%]="b.h"></div>
+          <span class="bar-lab">{{ b.code }}</span>
+        </div>
+      }
+    </div>
+    <div class="legend">
+      <span><i class="sw alu"></i>Aluminium</span>
+      <span><i class="sw gls"></i>Glass</span>
+      <span><i class="sw low"></i>Low stock (&lt; {{ data.lowLimit() }})</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <!-- Donut chart: Packed / Shipped / Sold split. -->
+      <div><div class="card-title">Bundle status</div><div class="card-note">{{ data.bundleCount() }} bundles in total</div></div>
+    </div>
+    <div class="donut-row">
+      <div class="donut" [style.background]="donut()" role="img" aria-label="Bundle status split">
+        <div><b>{{ data.bundleCount() }}</b><span>Bundles</span></div>
+      </div>
+      <ul class="dlegend">
+        @for (s of statuses(); track s.name) {
+          <li><i [class]="'dot ' + s.cls"></i>{{ s.name }}<b>{{ s.count }}</b></li>
+        }
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="grid cols-2-1 mt">
+  <div class="card">
+    <div class="card-head">
+      <!-- Line chart: weight sold per day for the last 7 days. -->
+      <div><div class="card-title">Sales trend</div><div class="card-note">Weight sold per day (kg)</div></div>
+      <span class="tag">LAST 7 DAYS</span>
+    </div>
+    <svg class="trend" viewBox="0 0 400 140" preserveAspectRatio="none" role="img" aria-label="Weight sold over seven days">
+      <defs>
+        <linearGradient id="fillg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#0b7a94" stop-opacity=".28" /><stop offset="1" stop-color="#0b7a94" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path [attr.d]="trend().area" fill="url(#fillg)" />
+      <path [attr.d]="trend().line" fill="none" stroke="#0b7a94" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+    </svg>
+    <div class="axis">@for (d of days(); track $index) { <span>{{ d }}</span> }</div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <!-- Bundles under the low-stock threshold set in Settings. -->
+      <div><div class="card-title">Low-stock alerts</div><div class="card-note">Bundles under {{ data.lowLimit() }} pcs</div></div>
+      <a routerLink="/stock" class="link">View all</a>
+    </div>
+    <div class="alerts">
+      @for (b of data.lowStock(); track b.id) {
+        <div class="alert">
+          <app-icon name="alert" [size]="18" />
+          <div><strong>{{ data.productName(b.code) }}</strong><small>Rack {{ b.rack }} · <span class="mono">{{ b.id }}</span></small></div>
+          <span class="badge warn">{{ b.pieces }} pcs</span>
+        </div>
+      } @empty { <div class="notice ok">All bundles are above the threshold.</div> }
+    </div>
+  </div>
+</div>
+
+<div class="card mt">
+  <div class="card-head">
+    <!-- Latest bundles table. -->
+    <div><div class="card-title">Recent bundles</div><div class="card-note">Latest packed and shipped stock</div></div>
+    <a routerLink="/bundles" class="btn sm">View all <app-icon name="arrow" [size]="14" /></a>
+  </div>
+  <div class="table-wrap">
+    <table class="tbl stack">
+      <thead><tr><th>Bundle ID</th><th>Product</th><th>Type</th><th class="right">Pieces</th><th class="right">Weight</th><th>Status</th></tr></thead>
+      <tbody>
+        @for (b of data.bundles().slice(0, 5); track b.id) {
+          <tr>
+            <td class="mono" data-label="Bundle ID">{{ b.id }}</td>
+            <td data-label="Product"><strong>{{ data.productName(b.code) }}</strong></td>
+            <td data-label="Type"><span class="cat" [class.glass]="data.categoryOf(b.code) === 'Glass'"><i></i>{{ data.categoryOf(b.code) }}</span></td>
+            <td class="right" data-label="Pieces">{{ b.pieces }} pcs</td>
+            <td class="right" data-label="Weight">{{ b.weight | number: '1.1-2' }} kg</td>
+            <td data-label="Status"><span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

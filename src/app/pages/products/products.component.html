@@ -1,0 +1,63 @@
+<!-- Purpose: Products page: searchable product table with category tabs. -->
+<div class="page-head">
+  <div><h1>Products</h1><p>Aluminium profiles and glass types you stock. Die No must be unique.</p></div>
+  <button class="btn primary" type="button" (click)="open()"><app-icon name="plus" [size]="16" /> Add product</button>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <div><div class="card-title">Product list</div><div class="card-note">{{ filtered().length }} of {{ data.products().length }} products</div></div>
+    <div class="row">
+      <div class="chips">
+        @for (c of cats; track c) {
+          <button type="button" class="chip" [class.active]="cat() === c" (click)="cat.set(c)">{{ c }}</button>
+        }
+      </div>
+      <input class="input" style="width:220px" type="search" placeholder="Search name, Die No…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="tbl stack">
+      <thead><tr><th>Die No</th><th>Product name</th><th>Type</th><th>Size</th><th>CL value</th><th>Finish</th><th></th></tr></thead>
+      <tbody>
+        @for (p of filtered(); track p.code) {
+          <tr>
+            <td class="mono" data-label="Die No">{{ p.code }}</td>
+            <td data-label="Product name"><strong>{{ p.name }}</strong></td>
+            <td data-label="Type"><span class="cat" [class.glass]="p.category === 'Glass'"><i></i>{{ p.category }}</span></td>
+            <td data-label="Size">{{ p.size }}</td>
+            <td data-label="CL value">{{ p.clValue || '—' }}</td>
+            <td data-label="Finish">{{ p.finish }}</td>
+            <td class="right"><button class="btn sm" type="button" (click)="open(p)">Edit</button></td>
+          </tr>
+        } @empty { <tr><td colspan="7" class="muted">No products found. Try a different filter or add a product.</td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add / edit product dialog. -->
+@if (dialog()) {
+  <div class="modal-scrim" (click)="close()">
+    <form class="modal" (click)="$event.stopPropagation()" (submit)="save($event)" role="dialog" aria-modal="true">
+      <h2>{{ editing() ? 'Edit product' : 'Add product' }}</h2>
+      <p class="card-note" style="margin-bottom:16px">Fields marked * are required.</p>
+      <div class="form-grid">
+        <div class="field"><label>Die No *</label><input class="input" name="code" [(ngModel)]="form.code" placeholder="e.g. AL-1003" /></div>
+        <div class="field"><label>Type</label>
+          <select class="input" name="category" [(ngModel)]="form.category"><option>Aluminium</option><option>Glass</option></select></div>
+        <div class="field wide"><label>Product name *</label><input class="input" name="name" [(ngModel)]="form.name" placeholder="e.g. Sliding Door Track" /></div>
+        <div class="field"><label>Size</label><input class="input" name="size" [(ngModel)]="form.size" placeholder='e.g. 3/4" 3 T/BOT' /></div>
+        <div class="field"><label>CL value</label><input class="input" name="cl" [(ngModel)]="form.clValue" placeholder="e.g. 15/FT" /></div>
+        <div class="field wide"><label>Finish</label><input class="input" name="finish" [(ngModel)]="form.finish" placeholder="Anodised / Clear / Tinted" /></div>
+      </div>
+      @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="close()">Cancel</button>
+        <button class="btn primary" type="submit">Save product</button>
+      </div>
+    </form>
+  </div>
+}
+
+@if (saved()) { <div class="toast notice ok">{{ saved() }}</div> }

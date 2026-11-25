@@ -1,0 +1,88 @@
+<!-- Purpose: Sales page with two tabs: record a new sale (with bill preview) and browse the sales history. -->
+<div class="page-head">
+  <div><h1>Sales</h1><p>Deduct stock from a bundle and create a bill.</p></div>
+  <div class="chips" role="tablist">
+    <button type="button" class="chip" role="tab" [class.active]="tab() === 'new'" (click)="tab.set('new')">New sale</button>
+    <button type="button" class="chip" role="tab" [class.active]="tab() === 'history'" (click)="tab.set('history')">Sales history</button>
+  </div>
+</div>
+
+@if (tab() === 'new') {
+  <div class="grid cols-2-1">
+    <!-- Record-a-sale form: scan or pick a bundle, quantity, customer. -->
+    <form class="card" (submit)="submit($event)">
+      <div class="card-head"><div><div class="card-title">Record a sale</div><div class="card-note">Quantities above available stock are rejected</div></div></div>
+      <div class="form-grid">
+        <div class="field wide">
+          <label>Scan bundle barcode</label>
+          <div class="row" style="flex-wrap:nowrap">
+            <input class="input" name="scan" placeholder="Scan or type a bundle ID, then press Enter" [ngModel]="scan()" (ngModelChange)="scan.set($event)" (keydown.enter)="find($event)" />
+            <button class="btn" type="button" (click)="find($event)">Find</button>
+          </div>
+        </div>
+        <div class="field wide">
+          <label>Bundle *</label>
+          <select class="input" name="bundle" [ngModel]="bundleId()" (ngModelChange)="bundleId.set($event)">
+            @for (b of available(); track b.id) {
+              <option [value]="b.id">{{ b.id }} · {{ data.productName(b.code) }} · {{ b.pieces }} pcs</option>
+            }
+          </select>
+        </div>
+        <div class="field"><label>Quantity to sell (pcs) *</label><input class="input" type="number" min="1" name="qty" [ngModel]="qty()" (ngModelChange)="qty.set($event)" /></div>
+        <div class="field"><label>Customer</label><input class="input" name="customer" [ngModel]="customer()" (ngModelChange)="customer.set($event)" placeholder="Walk-in customer" /></div>
+        <div class="field"><label>Available now</label><input class="input" readonly [value]="(current()?.pieces ?? 0) + ' pcs'" /></div>
+        <div class="field"><label>Stock after sale</label><input class="input" readonly [value]="remaining()" /></div>
+      </div>
+      @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
+      <div class="form-actions"><button class="btn primary" type="submit" [disabled]="!available().length"><app-icon name="receipt" [size]="16" /> Record sale &amp; create bill</button></div>
+    </form>
+
+    <div class="card">
+      <div class="card-head"><div><div class="card-title">Bill preview</div><div class="card-note">Appears after a successful sale</div></div><span class="tag">{{ bill() ? 'ISSUED' : 'PREVIEW' }}</span></div>
+      <div class="sheet"><ng-container *ngTemplateOutlet="receipt; context: { $implicit: bill() }" /></div>
+      @if (bill()) { <div class="form-actions"><button class="btn" type="button" (click)="print()">Print bill</button></div> }
+    </div>
+  </div>
+} @else {
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">Sales history</div><div class="card-note">All saved bills · read only</div></div><span class="tag">{{ data.sales().length }} bills</span></div>
+    <div class="table-wrap">
+      <table class="tbl stack">
+        <thead><tr><th>Bill</th><th>Date &amp; time</th><th>Customer</th><th>Product</th><th class="right">Pcs</th><th class="right">Weight</th><th class="right">Amount</th><th></th></tr></thead>
+        <tbody>
+          @for (s of data.sales(); track s.id) {
+            <tr>
+              <td class="mono" data-label="Bill">{{ s.id }}</td><td data-label="Date & time">{{ s.date }}</td><td data-label="Customer">{{ s.customer }}</td><td data-label="Product"><strong>{{ s.product }}</strong></td>
+              <td class="right" data-label="Pcs">{{ s.pcs }}</td><td class="right" data-label="Weight">{{ s.weight | number: '1.1-2' }} kg</td><td class="right" data-label="Amount">₹ {{ s.amount | number }}</td>
+              <td class="right"><button class="btn sm" type="button" (click)="detail.set(s)">View</button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@if (detail(); as s) {
+  <div class="modal-scrim" (click)="detail.set(null)">
+    <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Sale details">
+      <div class="sheet"><ng-container *ngTemplateOutlet="receipt; context: { $implicit: s }" /></div>
+      <div class="form-actions no-print"><button class="btn" type="button" (click)="detail.set(null)">Close</button><button class="btn primary" type="button" (click)="print()">Print bill</button></div>
+    </div>
+  </div>
+}
+
+<!-- Bill layout reused by the preview and the history detail dialog. -->
+<ng-template #receipt let-s>
+  <div class="receipt">
+    <div class="r-head">SALES RECEIPT</div>
+    <div class="r-line"><span>Bill no.</span><b>{{ s?.id ?? '—' }}</b></div>
+    <div class="r-line"><span>Date &amp; time</span><b>{{ s?.date ?? 'After sale' }}</b></div>
+    <div class="r-line"><span>Customer</span><b>{{ s?.customer ?? '—' }}</b></div>
+    <div class="r-line"><span>Product</span><b>{{ s?.product ?? '—' }}</b></div>
+    <div class="r-line"><span>Bundle ID</span><b class="mono">{{ s?.bundleId ?? '—' }}</b></div>
+    <div class="r-line"><span>Pieces sold</span><b>{{ s ? s.pcs : '—' }}</b></div>
+    <div class="r-line"><span>Weight sold</span><b>{{ s ? (s.weight | number: '1.2-2') + ' kg' : '—' }}</b></div>
+    <div class="r-line total"><span>Amount</span><b>{{ s ? '₹ ' + (s.amount | number) : '—' }}</b></div>
+  </div>
+</ng-template>

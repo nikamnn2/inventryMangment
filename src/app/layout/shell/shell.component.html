@@ -1,0 +1,67 @@
+<!-- Purpose: app frame: sidebar navigation, top bar and the area where each page appears. -->
+<div class="shell">
+  @if (drawerOpen()) { <div class="scrim" (click)="drawerOpen.set(false)"></div> }
+
+  <!-- Sidebar: brand, menu (only sections the role may open) and the signed-in user. -->
+  <aside class="side" [class.open]="drawerOpen()">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><i></i></span>
+      <div><strong>Invenza</strong><small>Aluminium &amp; Glass</small></div>
+    </div>
+
+    <nav aria-label="Main navigation">
+      @for (g of menu(); track g.title) {
+        <div class="group-title">{{ g.title }}</div>
+        @for (item of g.items; track item.path) {
+          <a [routerLink]="item.path" routerLinkActive="active">
+            <app-icon [name]="item.icon" />
+            <span>{{ item.label }}</span>
+            @if (item.path === '/stock' && data.lowStock().length) { <em class="dot-count">{{ data.lowStock().length }}</em> }
+          </a>
+        }
+      }
+    </nav>
+
+    <div class="side-foot">
+      <div class="who">
+        <span class="avatar">{{ initials() }}</span>
+        <div><strong>{{ auth.user()?.name }}</strong><small>{{ roleLabel() }}</small></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <!-- Top bar: menu button (small screens), breadcrumb, search, notifications and Sign out. -->
+    <header class="top">
+      <button type="button" class="icon-btn burger" (click)="drawerOpen.set(true)" aria-label="Open menu"><app-icon name="menu" /></button>
+      <div class="crumb">Inventory <span>/</span> <strong>{{ page() }}</strong></div>
+
+      <label class="search">
+        <app-icon name="search" [size]="16" />
+        <input type="search" placeholder="Search products, bundles, bills…" />
+      </label>
+
+      <button type="button" class="icon-btn" aria-label="Notifications">
+        <app-icon name="bell" />
+        @if (data.lowStock().length) { <i class="ping"></i> }
+      </button>
+
+      <button type="button" class="signout" (click)="signOut()" title="Sign out" aria-label="Sign out"><app-icon name="logout" [size]="16" /><span>Sign out</span></button>
+    </header>
+
+    <!-- Page area: shows the page once data is loaded, otherwise a retry card or loading message. -->
+    <main class="content">
+      @if (data.loaded()) {
+        <router-outlet />
+      } @else if (data.loadError()) {
+        <div class="card state" role="alert">
+          <strong>We couldn't load your inventory.</strong>
+          <p>{{ data.loadError() }}</p>
+          <button class="btn primary" type="button" (click)="reload()">Try again</button>
+        </div>
+      } @else {
+        <div class="card state" aria-busy="true">Loading inventory…</div>
+      }
+    </main>
+  </div>
+</div>

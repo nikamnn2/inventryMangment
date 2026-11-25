@@ -1,0 +1,7 @@
+/* Purpose: sales page and bill preview styles. */
+.receipt { background: var(--surface-2); border: 1px dashed var(--steel-2); border-radius: 12px; padding: 18px; display: grid; gap: 9px; font-size: 15px; }
+.r-head { text-align: center; font-weight: 700; letter-spacing: 2px; padding-bottom: 10px; border-bottom: 1px dashed var(--steel-2); }
+.r-line { display: flex; justify-content: space-between; gap: 14px; }
+.r-line span { color: var(--muted); }
+.r-line b { text-align: right; font-weight: 600; }
+.r-line.total { border-top: 1px solid var(--line); padding-top: 10px; font-size: 17px; }

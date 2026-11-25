@@ -1,0 +1,104 @@
+<!-- Purpose: Bundles page: bundle table with Edit / Label buttons, the add / edit dialog and the printable label. -->
+<div class="page-head">
+  <div><h1>Bundles</h1><p>Packed bundles linked to products, with weight and status.</p></div>
+  <button class="btn primary" type="button" (click)="open()"><app-icon name="plus" [size]="16" /> Add bundle</button>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <div><div class="card-title">Bundle list</div><div class="card-note">IDs, stock and status in one place</div></div>
+    <div class="row">
+      <input class="input" style="width:220px" type="search" placeholder="Search bundle ID, product…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+      <span class="tag">{{ data.bundles().length }} bundles</span>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="tbl stack">
+      <thead><tr><th>Bundle ID</th><th>Product</th><th class="right">Pieces</th><th class="right">Weight</th><th class="right">Avg / pc</th><th>Rack</th><th>Packed</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        @for (b of list(); track b.id) {
+          <tr>
+            <td class="mono" data-label="Bundle ID">{{ b.id }}</td>
+            <td data-label="Product"><strong>{{ data.productName(b.code) }}</strong><div class="muted small">Die No {{ b.code }}</div></td>
+            <td class="right" data-label="Pieces">{{ b.pieces }}</td>
+            <td class="right" data-label="Weight">{{ b.weight | number: '1.1-2' }} kg</td>
+            <td class="right" data-label="Avg / pc">{{ b.pieces ? (b.weight / b.pieces | number: '1.2-3') : '—' }} kg</td>
+            <td data-label="Rack">{{ b.rack }}</td>
+            <td data-label="Packed">{{ b.packed }}</td>
+            <td data-label="Status"><span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span></td>
+            <td class="right nowrap">
+              <button class="btn sm" type="button" (click)="open(b)">Edit</button>
+              <button class="btn sm" type="button" (click)="label.set(b)">Label</button>
+            </td>
+          </tr>
+        } @empty { <tr><td colspan="9" class="muted">No bundles found.</td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add / edit bundle dialog. -->
+@if (dialog()) {
+  <div class="modal-scrim" (click)="dialog.set(false)">
+    <form class="modal" (click)="$event.stopPropagation()" (submit)="save($event)" role="dialog" aria-modal="true">
+      <h2>{{ editingId() ? 'Edit bundle' : 'Add bundle' }}</h2>
+      <p class="card-note" style="margin-bottom:16px">{{ editingId() ? editingId() : 'A unique bundle ID is generated on save.' }}</p>
+      <div class="form-grid">
+        <div class="field wide"><label>Product / Die No *</label>
+          <select class="input" name="code" [(ngModel)]="form.code">
+            @for (p of data.products(); track p.code) { <option [value]="p.code">{{ p.code }} · {{ p.name }}</option> }
+          </select></div>
+        <div class="field"><label>Pieces (PCS) *</label><input class="input" type="number" min="0" name="pieces" [(ngModel)]="form.pieces" /></div>
+        <div class="field"><label>Total weight (kg) *</label><input class="input" type="number" min="0" step="0.01" name="weight" [(ngModel)]="form.weight" />
+          <span class="card-note">Enter manually · scale capture is planned</span></div>
+        <div class="field"><label>Avg. weight (kg/pc)</label><input class="input" readonly name="avg" [value]="avg()" /></div>
+        <div class="field"><label>Date packed</label><input class="input" type="date" name="packed" [(ngModel)]="form.packed" /></div>
+        <div class="field"><label>Rack</label><input class="input" name="rack" [(ngModel)]="form.rack" placeholder="A-01" /></div>
+        <div class="field"><label>Status</label>
+          <select class="input" name="status" [(ngModel)]="form.status"><option>Packed</option><option>Shipped</option><option>Sold</option></select></div>
+      </div>
+      @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="dialog.set(false)">Cancel</button>
+        <button class="btn primary" type="submit">Save bundle</button>
+      </div>
+    </form>
+  </div>
+}
+
+<!-- Printable bundle label: details plus the barcode and QR code (both contain the bundle ID). -->
+@if (label(); as b) {
+  <div class="modal-scrim" (click)="label.set(null)">
+    <div class="modal label-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Bundle label">
+      <div class="sheet label">
+        <div class="label-bar">
+          <h2 class="label-title">Bundle Details</h2>
+          <div class="label-tools no-print">
+            <button class="icon-btn" type="button" (click)="print()" title="Print label" aria-label="Print label"><app-icon name="print" /></button>
+            <button class="icon-btn" type="button" (click)="label.set(null)" title="Close" aria-label="Close"><app-icon name="close" /></button>
+          </div>
+        </div>
+        <div class="label-head">
+          <strong>Bundle Code: {{ b.id }}</strong>
+          <span class="label-status" [class]="b.status.toLowerCase()">Status: {{ b.status.toUpperCase() }}</span>
+        </div>
+        <div class="label-facts">
+          <div><small>Profile</small><strong>{{ data.productName(b.code) }}</strong></div>
+          <div><small>Die Number</small><strong>{{ b.code || '-' }}</strong></div>
+          <div><small>Weight</small><strong>{{ b.weight | number: '1.1-2' }} Kg</strong></div>
+          <div><small>Pieces</small><strong>{{ b.pieces }} PCS</strong></div>
+          <div><small>Avg Weight</small><strong>{{ b.pieces ? (b.weight / b.pieces | number: '1.2-3') : '—' }} Kg</strong></div>
+          <div><small>Length</small><strong>{{ data.product(b.code)?.clValue || '-' }}</strong></div>
+          <div><small>Size</small><strong>{{ data.product(b.code)?.size || '-' }}</strong></div>
+          <div><small>Packing Date</small><strong>{{ b.packed }}</strong></div>
+          <div><small>Rack</small><strong>{{ b.rack || '-' }}</strong></div>
+        </div>
+        <div class="label-codes">
+          <figure><figcaption>Barcode</figcaption><span class="code-box"><app-barcode [value]="b.id" [height]="64" [moduleWidth]="1.4" /><span class="mono-id">{{ b.id }}</span></span></figure>
+          <figure><figcaption>QR Code</figcaption><span class="code-box"><app-qrcode [value]="b.id" [px]="108" /></span></figure>
+        </div>
+      </div>
+      <p class="card-note no-print" style="margin-top:12px">Printing a label does not create a new bundle. The barcode and QR code both carry the bundle ID.</p>
+    </div>
+  </div>
+}

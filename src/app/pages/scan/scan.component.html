@@ -1,0 +1,105 @@
+<!-- Purpose: mobile Scan bundle page: camera scanner on the left, scanned bundle details on the right, session list below. -->
+<div class="page-head">
+  <div><h1>Scan bundle</h1><p>Scan a bundle label with your phone to pull up its details and send it out for delivery.</p></div>
+</div>
+
+<div class="scan-grid">
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">Scanner</div><div class="card-note">Point the camera at the bundle label barcode</div></div></div>
+
+    <div class="viewfinder">
+      @if (cameraOn()) {
+        <video #video playsinline muted></video>
+        @if (foundBox(); as f) {
+          <!-- the code that was read: square for a QR code, rectangle for a barcode -->
+          <div class="found" [class.square]="kind() === 'qr'" [class.rect]="kind() === 'barcode'" aria-hidden="true"
+               [style.left.%]="f.left" [style.top.%]="f.top" [style.width.%]="f.width" [style.height.%]="f.height"></div>
+        } @else {
+          <div class="reticle" aria-hidden="true"></div>
+        }
+        <div class="status" [class.busy]="busy()" aria-live="polite">{{ busy() ? 'Processing…' : kind() === 'qr' ? 'QR code' : kind() === 'barcode' ? 'Barcode' : 'Scanning…' }}{{ zoom() > 1 ? ' · ' + (zoom() | number: '1.0-1') + '× zoom' : '' }}</div>
+      } @else if (!busy()) {
+        <div class="idle"><app-icon name="layers" [size]="28" /><span>Tap “Ready to scan” for the next bundle</span></div>
+      }
+
+      @if (busy()) {
+        <!-- shown for 5 seconds after every scan, then the bundle details appear -->
+        <div class="processing" role="status" aria-live="polite">
+          <span class="spinner" aria-hidden="true"></span>
+          <strong>{{ kind() === 'qr' ? 'Reading QR code…' : kind() === 'barcode' ? 'Reading barcode…' : 'Processing…' }}</strong>
+          <span class="bar" aria-hidden="true"><i [style.animation-duration.ms]="processingMs"></i></span>
+        </div>
+      }
+    </div>
+
+    <div class="form-actions" style="justify-content:flex-start">
+      <button class="btn primary" type="button" [disabled]="cameraOn()" (click)="startCamera()">{{ cameraOn() ? 'Scanning…' : 'Ready to scan' }}</button>
+    </div>
+
+    <form class="row manual" (submit)="submitManual($event)">
+      <input class="input" name="manual" placeholder="…or type / hardware-scan a bundle ID" autocomplete="off" [ngModel]="manual()" (ngModelChange)="manual.set($event)" />
+      <button class="btn" type="submit">Find</button>
+    </form>
+
+    @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
+  </div>
+
+  <div class="card">
+    @if (bundle(); as b) {
+      <div class="card-head">
+        <div><div class="card-title mono">{{ b.id }}</div><div class="card-note">Everything on record for this bundle</div></div>
+        <span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span>
+      </div>
+      <dl class="facts">
+        <div><dt>Product</dt><dd>{{ data.productName(b.code) }}</dd></div>
+        <div><dt>Die No</dt><dd>{{ b.code }}</dd></div>
+        <div><dt>Pieces</dt><dd>{{ b.pieces }}</dd></div>
+        <div><dt>Total weight</dt><dd>{{ b.weight | number: '1.1-2' }} kg</dd></div>
+        <div><dt>Avg / piece</dt><dd>{{ b.pieces ? (b.weight / b.pieces | number: '1.2-3') : '—' }} kg</dd></div>
+        <div><dt>Rack</dt><dd>{{ b.rack || '—' }}</dd></div>
+        <div><dt>Packed</dt><dd>{{ b.packed }}</dd></div>
+      </dl>
+      @if (notice()) { <div class="notice ok" style="margin-top:14px">{{ notice() }}</div> }
+      <div class="form-actions" style="justify-content:flex-start">
+        <button class="btn primary" type="button" [disabled]="b.status !== 'Packed'" (click)="markOut(b)">
+          <app-icon name="truck" [size]="16" /> {{ b.status === 'Shipped' ? 'Already out for delivery' : 'Mark out for delivery' }}
+        </button>
+        <button class="btn" type="button" (click)="scanAgain(); startCamera()" [disabled]="cameraOn()">Scan next</button>
+      </div>
+    } @else {
+      <div class="empty"><app-icon name="layers" [size]="28" /><strong>No bundle scanned yet</strong><span>Scan a label and its details appear here.</span></div>
+    }
+  </div>
+</div>
+
+<!-- Scanned this session: one card per bundle with its scan count, total pieces and weight. -->
+@if (history().length) {
+  <div class="card" style="margin-top:20px">
+    <div class="card-head">
+      <div><div class="card-title">Scanned this session</div>
+        <div class="card-note">{{ totals().scans }} scans · {{ totals().pieces }} pcs · {{ totals().weight | number: '1.1-2' }} kg</div></div>
+      <button class="btn sm" type="button" (click)="clearHistory()">Clear</button>
+    </div>
+    <ul class="scans">
+      @for (e of history(); track e.bundle.id) {
+        <li [class.active]="bundle()?.id === e.bundle.id" (click)="bundle.set(e.bundle)">
+          <div class="top">
+            <span class="mono id">{{ e.bundle.id }}</span>
+            <span class="badge" [class]="e.bundle.status.toLowerCase()">{{ e.bundle.status }}</span>
+          </div>
+          <div class="name">{{ data.productName(e.bundle.code) }}</div>
+          <div class="stats">
+            <div><small>Scans</small><strong>× {{ e.count }}</strong></div>
+            <div><small>Pieces</small><strong>{{ e.bundle.pieces * e.count }}</strong></div>
+            <div><small>Weight</small><strong>{{ e.bundle.weight * e.count | number: '1.1-2' }} kg</strong></div>
+          </div>
+          <div class="qty" (click)="$event.stopPropagation()">
+            <button type="button" class="btn sm" (click)="adjust(e.bundle.id, -1)" aria-label="Decrease quantity">−</button>
+            <span>{{ e.count }}</span>
+            <button type="button" class="btn sm" (click)="adjust(e.bundle.id, 1)" aria-label="Increase quantity">+</button>
+          </div>
+        </li>
+      }
+    </ul>
+  </div>
+}

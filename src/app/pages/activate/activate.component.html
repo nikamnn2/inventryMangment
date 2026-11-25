@@ -1,0 +1,43 @@
+<!-- Purpose: account activation page: checking the link, "link not valid", "activated" confirmation, or the choose-a-password form. -->
+<main class="wrap">
+  <div class="card box">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><i></i></span>
+      <div><strong>Invenza</strong><small>Aluminium &amp; Glass Inventory</small></div>
+    </div>
+
+    @if (checking()) {
+      <p class="lead">Checking your link…</p>
+    } @else if (linkError()) {
+      <h1>Link not valid</h1>
+      <div class="notice err" role="alert">{{ linkError() }}</div>
+      <a class="btn" routerLink="/login">Go to sign in</a>
+    } @else if (done()) {
+      <h1>Account activated</h1>
+      <div class="notice ok">Your password is set. You can sign in now.</div>
+      <a class="btn primary" routerLink="/login">Sign in</a>
+    } @else {
+      <h1>Activate your account</h1>
+      <p class="lead">Welcome, {{ invite()?.name }}. Choose a password to finish setting up <strong>{{ invite()?.email }}</strong>.</p>
+
+      <!-- Choose-a-password form (the member types the password twice). -->
+      <form (submit)="submit($event, pw.value, confirm.value)">
+        <div class="field">
+          <label for="pw">New password</label>
+          <div class="control">
+            <input #pw id="pw" class="input" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password" placeholder="At least 8 characters" required />
+            <button type="button" class="peek" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+              <app-icon name="eye" [size]="17" />
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input #confirm id="confirm" class="input" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password" required />
+        </div>
+        @if (error()) { <div class="notice err" role="alert">{{ error() }}</div> }
+        <button class="btn primary" type="submit" [disabled]="saving()">{{ saving() ? 'Activating…' : 'Activate account' }}</button>
+      </form>
+    }
+  </div>
+</main>

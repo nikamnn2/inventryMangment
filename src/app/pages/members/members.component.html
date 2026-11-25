@@ -1,0 +1,80 @@
+<!-- Purpose: Members page (admin only): list of people with role and status, add / edit dialog and remove confirmation. -->
+<div class="page-head">
+  <div><h1>Members</h1><p>@if (isSuper()) { Register admins and employees and choose their role. } @else { Register your employees and choose their role. You see only the people you added. }</p></div>
+  <button class="btn primary" type="button" (click)="open()"><app-icon name="plus" [size]="16" /> Add member</button>
+</div>
+
+@if (loadError()) { <div class="notice err" role="alert" style="margin-bottom:16px">{{ loadError() }}</div> }
+
+<div class="card">
+  <div class="card-head">
+    <div><div class="card-title">Team</div><div class="card-note">{{ filtered().length }} of {{ members.members().length }} members</div></div>
+    <input class="input" style="width:240px" type="search" placeholder="Search name, email, role…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+  </div>
+  <div class="table-wrap">
+    <table class="tbl stack">
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th>@if (isSuper()) { <th>Added by</th> }<th></th></tr></thead>
+      <tbody>
+        @for (m of filtered(); track m.email) {
+          <tr>
+            <td data-label="Name"><strong>{{ m.name }}</strong></td>
+            <td data-label="Email">{{ m.email }}</td>
+            <td data-label="Role"><span class="badge" [class]="roleClass(m.role)">{{ m.superAdmin ? 'Super admin' : labels[m.role] }}</span></td>
+            <td data-label="Status"><span class="badge" [class]="m.status === 'pending' ? 'warn' : 'ok'">{{ m.status === 'pending' ? 'Pending activation' : 'Active' }}</span></td>
+            @if (isSuper()) { <td data-label="Added by">{{ m.addedBy || '—' }}</td> }
+            <td class="right">
+              @if (m.status === 'pending' && canManage(m)) { <button class="btn sm" type="button" (click)="resend(m)">Resend email</button> }
+              @if (canManage(m)) { <button class="btn sm" type="button" (click)="open(m)">Edit</button> }
+              @if (canDelete(m)) { <button class="btn sm danger-text" type="button" (click)="confirming.set(m)">Remove</button> }
+            </td>
+          </tr>
+        } @empty { <tr><td [attr.colspan]="isSuper() ? 6 : 5" class="muted">No members found.</td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add / edit member dialog. -->
+@if (dialog()) {
+  <div class="modal-scrim" (click)="close()">
+    <form class="modal" (click)="$event.stopPropagation()" (submit)="save($event)" role="dialog" aria-modal="true">
+      <h2>{{ editing() ? 'Edit member' : 'Add member' }}</h2>
+      <p class="card-note" style="margin-bottom:16px">The role decides which tabs the member can open.</p>
+      <div class="form-grid">
+        <div class="field wide"><label>Full name *</label><input class="input" name="name" [(ngModel)]="form.name" autocomplete="off" /></div>
+        <div class="field wide"><label>Email *</label><input class="input" name="email" type="email" [(ngModel)]="form.email" [readOnly]="!!editing()" autocomplete="off" /></div>
+        <div class="field"><label>Role *</label>
+          <select class="input" name="role" [(ngModel)]="form.role">
+            @for (r of roles(); track r) { <option [value]="r">{{ labels[r] }}</option> }
+          </select></div>
+        @if (editing()) {
+          <div class="field"><label>New password</label>
+            <input class="input" name="password" type="password" [(ngModel)]="form.password" autocomplete="new-password" placeholder="Leave blank to keep" /></div>
+        } @else {
+          <p class="card-note wide-note">We email the member an activation link. They choose their own password there.</p>
+        }
+      </div>
+      @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="close()">Cancel</button>
+        <button class="btn primary" type="submit">{{ editing() ? 'Save changes' : 'Register and send email' }}</button>
+      </div>
+    </form>
+  </div>
+}
+
+<!-- Remove member confirmation dialog. -->
+@if (confirming(); as m) {
+  <div class="modal-scrim" (click)="confirming.set(null)">
+    <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Remove member">
+      <h2>Remove {{ m.name }}?</h2>
+      <p class="card-note">{{ m.email }} will no longer be able to sign in.</p>
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="confirming.set(null)">Cancel</button>
+        <button class="btn primary" type="button" (click)="remove()">Remove</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (saved()) { <div class="toast notice" [class.ok]="savedTone() === 'ok'" [class.err]="savedTone() === 'warn'">{{ saved() }}</div> }
