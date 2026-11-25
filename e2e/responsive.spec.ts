@@ -14,6 +14,15 @@ test.beforeEach(async ({ request }) => {
   expect((await request.post(`${API}/api/test/reset`)).ok()).toBeTruthy();
 });
 
+/** Signs in as the test-only admin that playwright.config.ts gives the in-memory API. */
+async function signIn(page: import('@playwright/test').Page) {
+  await page.goto('/login');
+  await page.locator('#user').fill('admin@invenza.com');
+  await page.locator('#pw').fill('aluminium');
+  await page.getByRole('button', { name: /sign in/i }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+}
+
 /** The page itself must never scroll sideways; wide tables scroll inside their own wrapper. */
 async function expectNoPageOverflow(page: import('@playwright/test').Page, label: string) {
   const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
@@ -37,9 +46,7 @@ for (const vp of VIEWPORTS) {
     });
 
     test('every page fits the screen', async ({ page }) => {
-      await page.goto('/login');
-      await page.getByRole('button', { name: /sign in/i }).click();
-      await expect(page).toHaveURL(/\/dashboard/);
+      await signIn(page);
       for (const route of PAGES) {
         await page.goto(`/${route}`);
         await expect(page.locator('h1').first()).toBeVisible();
@@ -50,8 +57,7 @@ for (const vp of VIEWPORTS) {
     });
 
     test('dialogs fit the screen', async ({ page }) => {
-      await page.goto('/login');
-      await page.getByRole('button', { name: /sign in/i }).click();
+      await signIn(page);
       for (const [route, button] of [['products', /add product/i], ['bundles', /add bundle|new bundle/i], ['members', /add member/i]] as const) {
         await page.goto(`/${route}`);
         await page.getByRole('button', { name: button }).first().click();

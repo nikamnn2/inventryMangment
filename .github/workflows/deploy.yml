@@ -1,0 +1,146 @@
+name: Deploy to Hostinger
+
+# Runs on every push to main (and from the Actions tab with "Run workflow").
+# Order: check settings -> tests -> API -> website. Nothing is uploaded if an earlier step fails.
+# Uploads over FTPS. The API's environment variables are set in the Hostinger Node.js panel and are
+# never uploaded from here. Setup steps: DEPLOYMENT.md
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deployment at a time. A running upload is never cancelled halfway.
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  settings:
+    name: Check settings
+    runs-on: ubuntu-latest
+    steps:
+      # An empty or wrong folder would make the upload write over other files in the hosting account.
+      - name: Check the secrets and variables
+        env:
+          FTP_HOST: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          FTP_USER: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          API_URL: ${{ vars.API_URL }}
+          BACKEND_REMOTE_DIR: ${{ vars.BACKEND_REMOTE_DIR }}
+          FRONTEND_REMOTE_DIR: ${{ vars.FRONTEND_REMOTE_DIR }}
+        run: |
+          failed=0
+          fail() { echo "::error::$1"; failed=1; }
+          [ -n "$FTP_HOST" ] || fail "Secret HOSTINGER_FTP_SERVER is not set."
+          [ -n "$FTP_USER" ] || fail "Secret HOSTINGER_FTP_USERNAME is not set."
+          [ -n "$FTP_PASS" ] || fail "Secret HOSTINGER_FTP_PASSWORD is not set."
+          [[ "$API_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || fail "Variable API_URL must look like https://api.example.com (no trailing slash, no /api)."
+          for name in BACKEND_REMOTE_DIR FRONTEND_REMOTE_DIR; do
+            value="${!name}"
+            if [ -z "$value" ] || [[ "$value" != */ ]] || [ "$value" = "/" ] || [ "$value" = "./" ]; then
+              fail "Variable $name must name a folder and end with / (not the FTP root)."
+            fi
+          done
+          [ "$BACKEND_REMOTE_DIR" != "$FRONTEND_REMOTE_DIR" ] || fail "BACKEND_REMOTE_DIR and FRONTEND_REMOTE_DIR must be different folders."
+          exit $failed
+
+  test:
+    name: Test
+    needs: settings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Test the API
+        working-directory: server
+        run: |
+          npm ci
+          npm test
+
+      - name: Test the web app
+        run: |
+          npm ci
+          npm test -- --watch=false --browsers=ChromeHeadless
+
+  deploy-api:
+    name: Deploy API
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Uploads the source only; Hostinger installs the packages.
+      - name: Upload the API to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: server/
+          server-dir: ${{ vars.BACKEND_REMOTE_DIR }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            node_modules/**
+            tests/**
+            coverage/**
+            .env*
+            *.log
+
+  deploy-web:
+    name: Deploy website
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set the API address
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          sed -i "s|apiBaseUrl: ''|apiBaseUrl: '${API_URL}'|" src/environments/environment.prod.ts
+          grep -qF "apiBaseUrl: '${API_URL}'" src/environments/environment.prod.ts
+
+      - name: Build production bundle
+        run: npm run build:prod
+
+      # Hostinger serves static files, so publish the single-page version of the app:
+      # index.csr.html becomes index.html and the pre-rendered page folders are left out.
+      - name: Prepare the static site
+        run: |
+          mkdir site
+          cp -a dist/inventry-mangment/browser/. site/
+          find site -mindepth 2 -name index.html -delete
+          find site -mindepth 1 -type d -empty -delete
+          mv site/index.csr.html site/index.html
+          test -f site/.htaccess
+
+      - name: Upload the website to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: site/
+          server-dir: ${{ vars.FRONTEND_REMOTE_DIR }}

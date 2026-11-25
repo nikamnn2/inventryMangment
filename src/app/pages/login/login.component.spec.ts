@@ -79,7 +79,7 @@ describe('LoginComponent with login disabled (temporary bypass)', () => {
   it('opens the dashboard without credentials or any API call', async () => {
     await TestBed.configureTestingModule({
       imports: [LoginComponent],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()], // AUTH_DISABLED defaults to true
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting(), { provide: AUTH_DISABLED, useValue: true }],
     }).compileComponents();
     const fixture = TestBed.createComponent(LoginComponent);
     const nav = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);

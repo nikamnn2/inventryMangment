@@ -22,6 +22,7 @@ describe('ShellComponent', () => {
         provideRouter([{ path: 'stock', component: DummyComponent }, { path: '**', component: DummyComponent }]),
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: AUTH_DISABLED, useValue: true }, // signs in the all-tabs demo user
       ],
     });
     data = TestBed.inject(DataService);

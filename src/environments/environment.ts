@@ -3,6 +3,6 @@ export const environment = {
   production: false,
   /** Empty = same address as the web app (`ng serve` forwards /api through proxy.conf.json). */
   apiBaseUrl: '',
-  /** TEMPORARY: true = "Sign in" skips authentication (match AUTH_DISABLED in the API's env file). */
-  authDisabled: true,
+  /** Keep false for the real login. true = "Sign in" skips authentication (the API then needs AUTH_DISABLED=1). */
+  authDisabled: false,
 };

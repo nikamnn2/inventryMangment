@@ -50,7 +50,7 @@
         <label for="user">Username or email</label>
         <div class="control">
           <app-icon name="user" />
-          <input #user id="user" name="user" type="text" autocomplete="username" placeholder="you@company.com" value="admin@invenza.com" required />
+          <input #user id="user" name="user" type="text" autocomplete="username" placeholder="you@company.com" required />
         </div>
       </div>
 
@@ -58,7 +58,7 @@
         <label for="pw">Password</label>
         <div class="control">
           <app-icon name="lock" />
-          <input #pw id="pw" name="pw" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password" placeholder="••••••••" value="aluminium" required />
+          <input #pw id="pw" name="pw" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password" placeholder="••••••••" required />
           <button type="button" class="peek" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
             <app-icon name="eye" [size]="17" />
           </button>
@@ -75,7 +75,7 @@
       </button>
 
       @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
-      <p class="hint">@if (authDisabled) { Login is temporarily disabled · just click Sign in } @else { Demo account · admin&#64;invenza.com / aluminium }</p>
+      @if (authDisabled) { <p class="hint">Login is temporarily disabled · just click Sign in</p> }
     </form>
   </section>
 </div>

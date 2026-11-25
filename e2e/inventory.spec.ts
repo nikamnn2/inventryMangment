@@ -7,6 +7,9 @@ test.beforeEach(async ({ request }) => {
 
 async function signIn(page: Page) {
   await page.goto('/login');
+  // the test-only admin that playwright.config.ts gives the in-memory API
+  await page.locator('#user').fill('admin@invenza.com');
+  await page.locator('#pw').fill('aluminium');
   await page.getByRole('button', { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 }
@@ -33,8 +36,8 @@ test.describe('Login', () => {
   });
 
   test('wrong password shows an error and stays on login', async ({ page }) => {
-    test.skip(!process.env['E2E_AUTH'], 'login is temporarily disabled');
     await page.goto('/login');
+    await page.locator('#user').fill('admin@invenza.com');
     await page.locator('#pw').fill('wrong-password');
     await page.getByRole('button', { name: /sign in/i }).click();
     await expect(page.getByRole('alert')).toHaveText('Invalid email or password.');
@@ -42,13 +45,11 @@ test.describe('Login', () => {
   });
 
   test('protected pages redirect to login without a session', async ({ page }) => {
-    test.skip(!process.env['E2E_AUTH'], 'login is temporarily disabled');
     await page.goto('/sales');
     await expect(page).toHaveURL(/\/login/);
   });
 
   test('the session survives a reload and ends on sign out', async ({ page }) => {
-    test.skip(!process.env['E2E_AUTH'], 'login is temporarily disabled');
     await signIn(page);
     await page.reload();
     await expect(page.getByRole('heading', { name: /Good day/ })).toBeVisible();

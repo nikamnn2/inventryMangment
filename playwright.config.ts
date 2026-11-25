@@ -13,7 +13,8 @@ export default defineConfig({
       command: 'npm run dev:memory',
       cwd: 'server',
       url: 'http://localhost:3000/api/health',
-      env: { PORT: '3000', ENABLE_TEST_ROUTES: '1' },
+      // set here so the tests never use the admin account or mail server from server/.env
+      env: { PORT: '3000', ENABLE_TEST_ROUTES: '1', ADMIN_EMAIL: 'admin@invenza.com', ADMIN_PASSWORD: 'aluminium', AUTH_DISABLED: '0', SMTP_HOST: '' },
       reuseExistingServer: true,
       timeout: 180_000,
     },
