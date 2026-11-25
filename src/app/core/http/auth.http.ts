@@ -6,14 +6,17 @@ import { CanActivateFn, Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { isMobileDevice } from '../config/device';
+import { environment } from '../../../environments/environment';
 
-/** Adds the JWT to API calls and signs the user out when the server says it expired. */
+/** Sends API calls to the configured API address, adds the JWT and signs the user out when the server says it expired. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const token = auth.token();
   const isLogin = req.url.endsWith('/auth/login');
-  const authed = token && req.url.startsWith('/api') ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
-  return next(authed).pipe(
+  const outgoing = req.url.startsWith('/api')
+    ? req.clone({ url: `${environment.apiBaseUrl}${req.url}`, setHeaders: token ? { Authorization: `Bearer ${token}` } : {} })
+    : req;
+  return next(outgoing).pipe(
     catchError((err: unknown) => {
       if (err instanceof HttpErrorResponse && err.status === 401 && !isLogin) auth.logout();
       return throwError(() => err);

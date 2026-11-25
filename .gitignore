@@ -37,6 +37,17 @@ yarn-error.log
 testem.log
 /typings
 
+# Visual Studio caches, local logs and the deploy workflow's staging folder
+.vs/
+*.log
+/site/
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
 # System files
 .DS_Store
 Thumbs.db
