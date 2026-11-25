@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "postinstall": "node scripts/install-server.cjs",
     "start": "ng serve",
     "start:mobile": "ng serve --host 0.0.0.0 --ssl --allowed-hosts 172.20.10.7",
     "build": "ng build",
