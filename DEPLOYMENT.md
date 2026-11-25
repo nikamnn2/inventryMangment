@@ -8,12 +8,15 @@ runs the tests, uploads the API, then builds and uploads the website. If a step 
 | Website | The built Angular app (static files) | A Hostinger website, e.g. `https://inventory.example.com` |
 | API | The source in `server/` | A Hostinger Node.js app, e.g. `https://inventory-api.example.com` |
 
-## Alternative: Hostinger's own GitHub deployment
+## Alternative: one app at one address (Hostinger's GitHub deployment)
 
-Hostinger can also build the API straight from this repository with its default settings: main folder as root,
-entry file `server.js`, no build command, Node 22. The root `server.js` always runs in production mode, and the
-root `npm install` also installs the packages in `server/`. Add the variables listed below in the Node.js app.
-With this method you do not need the FTP workflow for the API. This does not publish the website.
+One Node.js app serves both the website and `/api`. Settings: main folder as root, entry file `server.js`, no build
+command, Node 22. The root `server.js` always runs in production mode. The root `npm install` also installs the
+packages in `server/` and builds the website, which is why the Angular build tools are listed under `dependencies`.
+(The build step is skipped when `@playwright/test` is installed, as on a developer machine.)
+
+Add the variables listed below, with `CORS_ORIGIN` and `APP_URL` set to this app's own address. No second
+subdomain, `API_URL` or FTP workflow is needed with this method.
 
 ## One-time setup
 

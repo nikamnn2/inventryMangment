@@ -20,6 +20,8 @@ const int = (v, d) => (Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : d);
 export const config = {
   env: isProduction ? 'production' : 'development',
   isProduction,
+  // built Angular app, served by the API in production (empty = API only; development uses `ng serve`)
+  webDir: isProduction ? fileURLToPath(new URL('../../../dist/inventry-mangment/browser', import.meta.url)) : '',
   // demo products, bundles, parties and sales are loaded in development only
   seedDemoData: !isProduction,
   port: int(process.env.PORT, 3000),

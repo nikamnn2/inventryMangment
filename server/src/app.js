@@ -7,6 +7,7 @@ import { seed } from './database/seeds/seed.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 import authRoutes from './routes/auth.routes.js';
 import { protectedRoutes } from './routes/index.js';
+import { serveWeb } from './web.js';
 
 /**
  * Builds the Express app. `ctx` carries the shared Mongo handle ({ db, poolStats }) and config,
@@ -45,6 +46,8 @@ export function createApp(ctx) {
   app.use('/api', protectedRoutes(ctx));
   /** Unknown /api URLs return a JSON 404; the last middleware turns any error into a JSON response. */
   app.use('/api', notFound);
+  /** Production only (config.webDir): the website itself, when it has been built. */
+  serveWeb(app, config.webDir);
   app.use(errorHandler);
 
   return app;

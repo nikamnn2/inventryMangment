@@ -38,7 +38,8 @@ export class BundlesComponent {
 
   /** Default values for a new bundle. */
   private blank(): BundleForm {
-    return { code: this.data.products()[0].code, pieces: 10, weight: 50, packed: new Date().toISOString().slice(0, 10), rack: '', status: 'Packed' };
+    // there may be no products yet (new database, or the list is still loading)
+    return { code: this.data.products()[0]?.code ?? '', pieces: 10, weight: 50, packed: new Date().toISOString().slice(0, 10), rack: '', status: 'Packed' };
   }
 
   /** Opens the dialog, empty for a new bundle or filled for editing. */
