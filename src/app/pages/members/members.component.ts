@@ -27,6 +27,9 @@ export class MembersComponent {
   protected readonly confirming = signal<Member | null>(null);
   protected readonly activating = signal<Member | null>(null);
   protected activatePassword = '';
+  protected readonly reviewing = signal<Member | null>(null);
+  /** Password reset requests waiting for a decision (shown above the list, so none is missed on a later page). */
+  protected readonly resetRequests = computed(() => this.members.members().filter(m => m.passwordReset?.status === 'requested'));
   protected readonly error = signal('');
   protected readonly loadError = signal('');
   protected readonly saved = signal('');
@@ -49,9 +52,9 @@ export class MembersComponent {
     void this.members.load().then(err => this.loadError.set(err ?? ''));
   }
 
-  /** The super admin is untouchable; other admins can only be managed by the super admin. */
+  /** The super admin is untouchable; other admins only by the super admin; and only people you added. */
   protected canManage(m: Member): boolean {
-    if (m.superAdmin) return false;
+    if (m.superAdmin || m.manageable === false) return false;
     return m.role !== 'admin' || this.isSuper();
   }
 
@@ -129,6 +132,22 @@ export class MembersComponent {
     this.activating.set(null);
     this.activatePassword = '';
     this.flash(`${m.name} is now active.`);
+  }
+
+  /** Opens the dialog where the admin compares the request code and decides. */
+  protected openReview(m: Member): void {
+    this.error.set('');
+    this.reviewing.set(m);
+  }
+
+  /** Approves or rejects the reviewed password reset request. */
+  protected async decideReset(approve: boolean): Promise<void> {
+    const m = this.reviewing();
+    if (!m?.passwordReset) return;
+    const err = approve ? await this.members.approveReset(m.email, m.passwordReset.code) : await this.members.rejectReset(m.email);
+    this.reviewing.set(null);
+    if (err) this.loadError.set(err);
+    else this.flash(approve ? `Approved. ${m.name} can now sign in with only their email to set a new password.` : 'Password reset request rejected.', 'ok');
   }
 
   /** Sends the activation email again to a member who has not activated yet. */

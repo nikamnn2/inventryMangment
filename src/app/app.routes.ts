@@ -18,6 +18,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/activate/activate.component').then(m => m.ActivateComponent),
   },
   {
+    path: 'reset-password',
+    title: 'Set a new password · Invenza',
+    loadComponent: () => import('./pages/reset-password/reset-password.component').then(m => m.ResetPasswordComponent),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./layout/shell/shell.component').then(m => m.ShellComponent),

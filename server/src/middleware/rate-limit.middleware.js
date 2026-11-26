@@ -7,9 +7,10 @@ const MAX_KEYS = 10_000;
 /**
  * Allows `max` failed requests per `key(req)` in 15 minutes, then answers 429. A request is counted when it
  * arrives (so a burst of parallel guesses cannot slip through) and uncounted again if it succeeds.
+ * With `countAll` successful requests count too (for actions that should be rare even when they work).
  * Counts are kept in memory: they restart with the API and are per API process.
  */
-export function limitFailures({ max, key, windowMs = WINDOW_MS, now = Date.now }) {
+export function limitFailures({ max, key, windowMs = WINDOW_MS, now = Date.now, countAll = false }) {
   const hits = new Map();
 
   /** Keeps memory bounded when someone sends endless different keys. */
@@ -33,12 +34,12 @@ export function limitFailures({ max, key, windowMs = WINDOW_MS, now = Date.now }
     if (entry.count >= max) {
       const seconds = Math.ceil((entry.resets - time) / 1000);
       res.set('Retry-After', String(seconds));
-      return next(new HttpError(429, `Too many failed attempts. Try again in ${Math.ceil(seconds / 60)} minutes.`));
+      return next(new HttpError(429, `Too many ${countAll ? 'requests' : 'failed attempts'}. Try again in ${Math.ceil(seconds / 60)} minutes.`));
     }
     entry.count++;
     res.on('finish', () => {
       // 429 from a later limit is not a new guess either
-      if (res.statusCode < 400 || res.statusCode === 429) entry.count = Math.max(0, entry.count - 1);
+      if ((!countAll && res.statusCode < 400) || res.statusCode === 429) entry.count = Math.max(0, entry.count - 1);
     });
     next();
   };

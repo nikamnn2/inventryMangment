@@ -1,10 +1,17 @@
 <!-- Purpose: Members page (admin only): list of people with role and status, add / edit dialog and remove confirmation. -->
 <div class="page-head">
-  <div><h1>Members</h1><p>@if (isSuper()) { Register admins and employees and choose their role. } @else { Register your employees and choose their role. You see only the people you added. }</p></div>
+  <div><h1>Members</h1><p>@if (isSuper()) { Register admins and employees and choose their role. } @else { Register your employees and choose their role. You see the whole team, and can change the people you added. }</p></div>
   <button class="btn primary" type="button" (click)="open()"><app-icon name="plus" [size]="16" /> Add member</button>
 </div>
 
 @if (loadError()) { <div class="notice err" role="alert" style="margin-bottom:16px">{{ loadError() }}</div> }
+
+@for (m of resetRequests(); track m.email) {
+  <div class="notice reset-request" role="status">
+    <span><strong>{{ m.name }}</strong> asked to reset their password.</span>
+    <button class="btn sm" type="button" (click)="openReview(m)">Review request</button>
+  </div>
+}
 
 <div class="card">
   <div class="card-head">
@@ -23,6 +30,7 @@
             <td data-label="Status"><span class="badge" [class]="m.status === 'pending' ? 'warn' : 'ok'">{{ m.status === 'pending' ? 'Pending activation' : 'Active' }}</span></td>
             @if (isSuper()) { <td data-label="Added by">{{ m.addedBy || '—' }}</td> }
             <td class="right">
+              @if (m.passwordReset) { <button class="btn sm" type="button" (click)="openReview(m)">{{ m.passwordReset.status === 'approved' ? 'Reset approved' : 'Review reset' }}</button> }
               @if (m.status === 'pending' && canManage(m)) { <button class="btn sm" type="button" (click)="resend(m)">Resend email</button> }
               @if (m.status === 'pending' && canManage(m)) { <button class="btn sm" type="button" (click)="openActivate(m)">Activate</button> }
               @if (canManage(m)) { <button class="btn sm" type="button" (click)="open(m)">Edit</button> }
@@ -80,6 +88,27 @@
         <button class="btn primary" type="submit">Activate account</button>
       </div>
     </form>
+  </div>
+}
+
+<!-- Password reset request: compare the code with the person before approving. -->
+@if (reviewing(); as m) {
+  <div class="modal-scrim" (click)="reviewing.set(null)">
+    <div class="modal reset-review" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Password reset request">
+      <h2>Password reset: {{ m.name }}</h2>
+      <p class="card-note">{{ m.email }}</p>
+      @if (m.passwordReset?.status === 'approved') {
+        <p style="margin-top:14px">Approved. They can sign in with only their email, on the device they used to ask, and set a new password. You can still cancel this.</p>
+      } @else {
+        <p style="margin-top:14px">Call or meet {{ m.name }} and ask for their request code. <strong>Approve only if it matches:</strong></p>
+        <p class="reset-code">{{ m.passwordReset?.code }}</p>
+      }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="reviewing.set(null)">Close</button>
+        <button class="btn danger-text" type="button" (click)="decideReset(false)">{{ m.passwordReset?.status === 'approved' ? 'Cancel approval' : 'Reject' }}</button>
+        @if (m.passwordReset?.status === 'requested') { <button class="btn primary" type="button" (click)="decideReset(true)">Code matches, approve</button> }
+      </div>
+    </div>
   </div>
 }
 

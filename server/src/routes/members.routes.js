@@ -10,6 +10,8 @@ export default function memberRoutes(ctx) {
   r.post('/', wrap(c.create));
   r.post('/:email/resend', wrap(c.resend));
   r.post('/:email/activate', wrap(c.activate));
+  r.post('/:email/reset/approve', wrap(c.approveReset));
+  r.post('/:email/reset/reject', wrap(c.rejectReset));
   r.put('/:email', wrap(c.update));
   r.delete('/:email', wrap(c.remove));
   return r;

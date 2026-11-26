@@ -54,6 +54,15 @@ describe('MembersComponent', () => {
     expect(c.canDelete(OTHER_ADMIN)).toBeFalse();
   });
 
+  it('shows no actions for someone another admin added', () => {
+    const { svc, fixture, c } = setup('adm@x.y', false);
+    svc.members.set([{ ...PENDING, manageable: false }]);
+    fixture.detectChanges();
+    expect(c.canManage({ ...STAFF, manageable: false })).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Newbie');
+    expect(fixture.nativeElement.querySelectorAll('tbody button').length).toBe(0);
+  });
+
   it('maps roles to badge styles', () => {
     const { c } = setup('root@x.y', true);
     expect([c.roleClass('admin'), c.roleClass('manager'), c.roleClass('accountant')]).toEqual(['danger', 'info', 'ok']);
@@ -205,6 +214,37 @@ describe('MembersComponent', () => {
       c.close();
       expect(c.dialog()).toBeFalse();
     });
+  });
+
+  describe('password reset requests', () => {
+    const ASKED: Member = { ...STAFF, passwordReset: { status: 'requested', code: '482913' } };
+
+    it('lists waiting requests, shows the code and approves it', fakeAsync(() => {
+      const { svc, fixture, c } = setup('root@x.y', true);
+      svc.members.set([SUPER, ASKED]);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('asked to reset their password');
+      const approve = spyOn(svc, 'approveReset').and.resolveTo(null);
+      c.openReview(ASKED);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.reset-code').textContent.trim()).toBe('482913');
+      c.decideReset(true);
+      tick();
+      expect(approve).toHaveBeenCalledWith('staff@x.y', '482913');
+      expect(c.reviewing()).toBeNull();
+      expect(c.saved()).toContain('Approved.');
+      tick(2500);
+    }));
+
+    it('rejects a request and shows a failure', fakeAsync(() => {
+      const { svc, c } = setup('root@x.y', true);
+      const reject = spyOn(svc, 'rejectReset').and.resolveTo('This request has changed.');
+      c.openReview(ASKED);
+      c.decideReset(false);
+      tick();
+      expect(reject).toHaveBeenCalledWith('staff@x.y');
+      expect(c.loadError()).toBe('This request has changed.');
+    }));
   });
 
   describe('removing', () => {

@@ -15,8 +15,9 @@ function setup(disabled: boolean) {
 }
 
 describe('AuthService', () => {
-  beforeEach(() => localStorage.clear());
-  afterEach(() => localStorage.clear());
+  const clear = () => { localStorage.clear(); sessionStorage.clear(); };
+  beforeEach(clear);
+  afterEach(clear);
 
   describe('with authentication enabled', () => {
     it('starts signed out', () => {
@@ -61,7 +62,30 @@ describe('AuthService', () => {
       req.flush({ token: 'tok', user: USER });
       expect(await p).toBeNull();
       expect(auth.token()).toBe('tok');
+      // not "keep me signed in": it ends with the browser
+      expect(sessionStorage.getItem('invenza.token')).toBe('tok');
+      expect(localStorage.getItem('invenza.token')).toBeNull();
+    });
+
+    it('keeps the sign-in after the browser closes when asked to', async () => {
+      const { auth, http } = setup(false);
+      const p = auth.login('a@b.c', 'pw', true);
+      const req = http.expectOne('/api/auth/login');
+      expect(req.request.body).toEqual({ email: 'a@b.c', password: 'pw', remember: true });
+      req.flush({ token: 'tok', user: USER });
+      await p;
       expect(localStorage.getItem('invenza.token')).toBe('tok');
+      expect(sessionStorage.getItem('invenza.token')).toBeNull();
+    });
+
+    it('restores a sign-in that lasts only for the browser session, and signing out removes it', () => {
+      sessionStorage.setItem('invenza.token', 'tok');
+      sessionStorage.setItem('invenza.user', JSON.stringify(USER));
+      const { auth } = setup(false);
+      expect(auth.loggedIn()).toBeTrue();
+      spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+      auth.logout();
+      expect(sessionStorage.getItem('invenza.token')).toBeNull();
     });
 
     it('returns the server message for bad credentials', async () => {
@@ -103,6 +127,52 @@ describe('AuthService', () => {
       expect(auth.loggedIn()).toBeFalse();
       expect(localStorage.getItem('invenza.token')).toBeNull();
       expect(nav).toHaveBeenCalledWith('/login');
+    });
+  });
+
+  describe('forgotten password', () => {
+    const pending = { email: 'a@b.c', token: 'secret', code: '123456' };
+
+    it('sends the request and remembers it in this browser', async () => {
+      const { auth, http } = setup(false);
+      const p = auth.forgotPassword(' A@B.c ');
+      http.expectOne('/api/auth/forgot').flush({ token: 'secret', code: '123456' });
+      expect(await p).toEqual(pending);
+      expect(auth.pendingReset()).toEqual(pending);
+    });
+
+    it('checks the approval and changes the password, then forgets the request', async () => {
+      const { auth, http } = setup(false);
+      localStorage.setItem('invenza.reset', JSON.stringify(pending));
+      const check = auth.resetStatus(pending);
+      const asked = http.expectOne('/api/auth/forgot/status');
+      expect(asked.request.body).toEqual({ email: 'a@b.c', token: 'secret' });
+      asked.flush({ status: 'approved' });
+      expect(await check).toEqual({ status: 'approved' });
+
+      const save = auth.resetPassword(pending, 'longenough1');
+      const req = http.expectOne('/api/auth/forgot/reset');
+      expect(req.request.body).toEqual({ email: 'a@b.c', token: 'secret', password: 'longenough1' });
+      req.flush({ ok: true });
+      expect(await save).toBeNull();
+      expect(auth.pendingReset()).toBeNull();
+    });
+
+    it('returns the server message and keeps the request when something fails', async () => {
+      const { auth, http } = setup(false);
+      localStorage.setItem('invenza.reset', JSON.stringify(pending));
+      const save = auth.resetPassword(pending, 'x');
+      http.expectOne('/api/auth/forgot/reset').flush({ error: 'Not approved.' }, { status: 403, statusText: 'Forbidden' });
+      expect(await save).toBe('Not approved.');
+      expect(auth.pendingReset()).toEqual(pending);
+      const send = auth.forgotPassword('a@b.c');
+      http.expectOne('/api/auth/forgot').error(new ProgressEvent('error'));
+      expect(await send).toContain('Cannot reach the server');
+    });
+
+    it('ignores damaged saved data', () => {
+      localStorage.setItem('invenza.reset', '{oops');
+      expect(setup(false).auth.pendingReset()).toBeNull();
     });
   });
 

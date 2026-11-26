@@ -1,4 +1,4 @@
-/** Purpose: URLs for signing in and for activating an invited member account. */
+/** Purpose: URLs for signing in, activating an invited member account and resetting a forgotten password. */
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
@@ -16,6 +16,16 @@ export default function authRoutes(ctx) {
     limitFailures({ max: 100, key: req => req.ip }),
   ];
   const linkLimit = limitFailures({ max: 20, key: req => req.ip });
+  /** "Forgot password?" requests are limited even when they succeed: per account and per visitor. */
+  const forgotLimits = [
+    limitFailures({ max: 3, key: email, countAll: true }),
+    limitFailures({ max: 10, key: req => req.ip, countAll: true }),
+  ];
+  const resetLimit = limitFailures({ max: 20, key: req => req.ip });
+  /** Public: ask an admin to allow a new password, check for approval, then set it. */
+  r.post('/forgot', ...forgotLimits, wrap(c.forgotPassword));
+  r.post('/forgot/status', limitFailures({ max: 60, key: req => req.ip, countAll: true }), wrap(c.resetStatus));
+  r.post('/forgot/reset', resetLimit, wrap(c.resetPassword));
   /** POST /api/auth/login - email + password -> login token. */
   r.post('/login', ...loginLimits, wrap(c.login));
   /** Public: shows whose account an activation link belongs to. */

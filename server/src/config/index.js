@@ -33,6 +33,8 @@ export const config = {
   minPoolSize: int(process.env.MONGO_MIN_POOL_SIZE, 2),
   jwtSecret: process.env.JWT_SECRET ?? 'dev-only-secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '12h',
+  // how long a sign-in lasts when "Keep me signed in" is ticked
+  jwtRememberExpiresIn: process.env.JWT_REMEMBER_EXPIRES_IN ?? '30d',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:4200',
   adminEmail: process.env.ADMIN_EMAIL ?? 'admin@invenza.com',
   adminPassword: process.env.ADMIN_PASSWORD ?? 'aluminium',

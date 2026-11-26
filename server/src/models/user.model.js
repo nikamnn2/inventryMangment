@@ -27,11 +27,15 @@ export const canAccess = (role, module) => modulesFor(role).includes(module);
 /** The super admin is the account named by ADMIN_EMAIL: it is an admin that nobody can demote or delete. */
 export const isSuperAdmin = (email, config) => !!email && email.toLowerCase() === config.adminEmail?.toLowerCase();
 
+/** Who an admin sees on the Members page: everyone, except that only the super admin sees the super admin. */
+export const canSeeMember = (callerEmail, member, config) =>
+  isSuperAdmin(callerEmail, config) || !isSuperAdmin(member.email, config);
+
 /**
- * Who a signed-in member manager can see. The super admin sees everyone. An admin sees their own
+ * Whom an admin may change. The super admin may change everyone. Any other admin only their own
  * account and the employees they registered, never other admins or other admins' employees.
  */
-export const canSeeMember = (callerEmail, member, config) => {
+export const canManageMember = (callerEmail, member, config) => {
   const caller = callerEmail.toLowerCase();
   return isSuperAdmin(caller, config) || member.email === caller || (member.createdBy === caller && member.role !== 'admin');
 };

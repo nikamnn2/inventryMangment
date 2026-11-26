@@ -119,3 +119,10 @@ h2 { font-size: 28px; letter-spacing: -.7px; font-weight: 650; }
   .panel { background: linear-gradient(160deg, #0d1a24, #1b3a4d); }
   .glass-card { background: rgba(255,255,255,.94); padding: 30px 20px 24px; }
 }
+
+/* forgot password: messages, and the request code to read out to the admin */
+.info { background: var(--accent-soft); color: #0a5668; border-radius: 10px; padding: 10px 12px; font-size: 15px; margin: 14px 0 0; text-align: center; }
+.hint a { color: var(--accent); font-weight: 600; }
+.sent .code { margin: 0 0 18px; padding: 14px; text-align: center; font-size: 34px; font-weight: 700; letter-spacing: 8px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--accent-soft); color: #0f1b2a; user-select: all; }
+.sent ol { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; color: #3d4f5c; }
+.sent .submit { margin-top: 16px; }

@@ -37,7 +37,8 @@
   <!-- Form side -->
   <section class="panel">
     <!-- Sign-in form. When login is switched off for demos the fields are optional. -->
-    <form class="glass-card" (submit)="signIn($event, user.value, pw.value)">
+    @if (view() === 'signin') {
+    <form class="glass-card" novalidate (submit)="signIn($event, user.value, pw.value, remember.checked)">
       <div class="mobile-brand">
         <span class="mark" aria-hidden="true"><i></i></span>
         <strong>Invenza</strong>
@@ -50,7 +51,7 @@
         <label for="user">Username or email</label>
         <div class="control">
           <app-icon name="user" />
-          <input #user id="user" name="user" type="text" autocomplete="username" placeholder="you@company.com" required />
+          <input #user id="user" name="user" type="text" inputmode="email" autocapitalize="off" autocomplete="username" placeholder="you@company.com" [value]="email()" required />
         </div>
       </div>
 
@@ -66,8 +67,8 @@
       </div>
 
       <div class="options">
-        <label class="check"><input type="checkbox" checked /> Keep me signed in</label>
-        <a href="#" (click)="$event.preventDefault()">Forgot password?</a>
+        <label class="check"><input #remember type="checkbox" name="remember" checked /> Keep me signed in</label>
+        <a href="#" class="forgot" (click)="$event.preventDefault(); showForgot(user.value)">Forgot password?</a>
       </div>
 
       <button class="submit" type="submit" [disabled]="loading()">
@@ -75,7 +76,43 @@
       </button>
 
       @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+      @if (info()) { <p class="info" role="status">{{ info() }}</p> }
       @if (authDisabled) { <p class="hint">Login is temporarily disabled · just click Sign in</p> }
     </form>
+    } @else if (view() === 'forgot') {
+    <!-- Forgot password: send a request to the admin. -->
+    <form class="glass-card" novalidate (submit)="requestReset($event, resetEmail.value)">
+      <div class="mobile-brand">
+        <span class="mark" aria-hidden="true"><i></i></span>
+        <strong>Invenza</strong>
+      </div>
+      <h2>Forgot password?</h2>
+      <p class="lead">We will ask your admin to let you set a new one.</p>
+      <div class="field">
+        <label for="reset-email">Email</label>
+        <div class="control">
+          <app-icon name="user" />
+          <input #resetEmail id="reset-email" name="resetEmail" type="email" autocapitalize="off" autocomplete="username" placeholder="you@company.com" [value]="email()" />
+        </div>
+      </div>
+      <button class="submit" type="submit" [disabled]="loading()">{{ loading() ? 'Sending…' : 'Send request to admin' }}</button>
+      @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+      <p class="hint"><a href="#" class="back" (click)="$event.preventDefault(); showSignIn()">Back to sign in</a></p>
+    </form>
+    } @else {
+    <!-- The request is sent: show the code the admin will check. -->
+    <div class="glass-card sent">
+      <h2>Request sent</h2>
+      <p class="lead">Tell your admin this code. They approve only if it matches.</p>
+      <p class="code" aria-label="Your request code">{{ code() }}</p>
+      <ol>
+        <li>Wait for your admin to approve the request.</li>
+        <li>Come back <strong>on this same phone or computer</strong>.</li>
+        <li>Enter only your email, leave the password empty, and press <strong>Sign in</strong>.</li>
+      </ol>
+      <p class="card-note">The request lasts 24 hours. If this is the main administrator account, the password has to be reset on the server.</p>
+      <button class="submit" type="button" (click)="showSignIn()">Back to sign in</button>
+    </div>
+    }
   </section>
 </div>

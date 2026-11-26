@@ -449,11 +449,11 @@ describe('members', () => {
     await api.post('/api/members').set(first).send({ ...valid, email: 'staff@example.com', role: 'manager' });
     await post('/api/members', { ...valid, email: 'newadmin@example.com', role: 'admin' });
 
-    assert.equal((await activate('staff@example.com', second)).status, 404);
-    assert.equal((await activate('newadmin@example.com', first)).status, 404);
+    assert.equal((await activate('staff@example.com', second)).status, 403);
+    assert.equal((await activate('newadmin@example.com', first)).status, 403);
     // an admin who once added someone still cannot activate them after they become an admin
     await put('/api/members/staff@example.com', { name: 'S', role: 'admin' });
-    assert.equal((await activate('staff@example.com', first)).status, 404);
+    assert.equal((await activate('staff@example.com', first)).status, 403);
     await put('/api/members/staff@example.com', { name: 'S', role: 'manager' });
 
     assert.equal((await activate('staff@example.com', first)).status, 200);
@@ -519,7 +519,7 @@ describe('members', () => {
     assert.equal((await api.delete('/api/members/second@example.com').set(auth)).status, 404);
   });
 
-  it('limits each admin to the employees they registered', async () => {
+  it('lets each admin see everyone but the super admin, and change only the employees they registered', async () => {
     await register({ ...valid, email: 'first@example.com', role: 'admin' });
     await register({ ...valid, email: 'second@example.com', role: 'admin' });
     const first = bearer((await login('first@example.com', 'longenough1')).token);
@@ -528,14 +528,19 @@ describe('members', () => {
     await post('/api/members', { ...valid, email: 'pending@example.com' });
 
     const emails = async headers => (await api.get('/api/members').set(headers)).body.map(m => m.email).sort();
-    assert.deepEqual(await emails(first), ['first@example.com', 'staff@example.com']);
-    assert.deepEqual(await emails(second), ['second@example.com']);
+    const everyone = ['accountant@invenza.com', 'first@example.com', 'manager@invenza.com', 'pending@example.com', 'second@example.com', 'staff@example.com'];
+    assert.deepEqual(await emails(first), everyone);
+    assert.deepEqual(await emails(second), everyone);
+    const changeable = async headers => (await api.get('/api/members').set(headers)).body.filter(m => m.manageable).map(m => m.email).sort();
+    assert.deepEqual(await changeable(first), ['first@example.com', 'staff@example.com']);
+    assert.deepEqual(await changeable(second), ['second@example.com']);
+    assert.equal((await api.post('/api/members/pending@example.com/activate').set(second).send({ password: 'hijacked123' })).status, 403);
 
     for (const email of ['staff@example.com', 'first@example.com', 'pending@example.com']) {
       const url = `/api/members/${email}`;
-      assert.equal((await api.put(url).set(second).send({ name: 'x', role: 'manager', password: 'hijacked123' })).status, 404, email);
-      assert.equal((await api.delete(url).set(second)).status, 404, email);
-      assert.equal((await api.post(`${url}/resend`).set(second)).status, 404, email);
+      assert.equal((await api.put(url).set(second).send({ name: 'x', role: 'manager', password: 'hijacked123' })).status, 403, email);
+      assert.equal((await api.delete(url).set(second)).status, 403, email);
+      assert.equal((await api.post(`${url}/resend`).set(second)).status, 403, email);
     }
     assert.equal((await api.put('/api/members/staff@example.com').set(first).send({ name: 'S', role: 'accountant' })).status, 200);
     // an edit does not move the employee to whoever made it
@@ -645,6 +650,131 @@ describe('security', () => {
     await post('/api/sales', { bundleId: bundle.bundleId, quantity: 1, customer: '=HYPERLINK("http://evil.test")' });
     const csv = (await get('/api/reports/sales.csv')).text;
     assert.ok(csv.includes(`"'=HYPERLINK(""http://evil.test"")"`));
+  });
+});
+
+describe('keep me signed in', () => {
+  const lifetimeHours = token => {
+    const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
+    return (claims.exp - claims.iat) / 3600;
+  };
+
+  it('gives a longer sign-in only when asked for', async () => {
+    const body = { email: config.adminEmail, password: config.adminPassword };
+    assert.equal(lifetimeHours((await api.post('/api/auth/login').send(body)).body.token), 1);
+    assert.equal(lifetimeHours((await api.post('/api/auth/login').send({ ...body, remember: 'yes' })).body.token), 1);
+    assert.equal(lifetimeHours((await api.post('/api/auth/login').send({ ...body, remember: true })).body.token), 30 * 24);
+  });
+});
+
+describe('forgotten password', () => {
+  const email = 'manager@invenza.com';
+  let app; // a new app for each test, so the request limits start from zero
+  beforeEach(async () => {
+    // fresh demo accounts, so a password changed by one test does not affect the next
+    await conn.db.collection('users').deleteMany({ email: { $ne: config.adminEmail } });
+    await seed(conn.db, { ...config });
+    app = request(createApp({ db: conn.db, poolStats: conn.poolStats, config, mailer }));
+  });
+
+  const forgot = async (who = email) => (await app.post('/api/auth/forgot').send({ email: who })).body;
+  const status = async (token, who = email) => (await app.post('/api/auth/forgot/status').send({ email: who, token })).body.status;
+  const reset = (token, password = 'brand-new-pass', who = email) => app.post('/api/auth/forgot/reset').send({ email: who, token, password });
+  const approve = (code, headers = auth, who = email) => app.post(`/api/members/${who}/reset/approve`).set(headers).send({ code });
+  const signIn = (password, who = email) => app.post('/api/auth/login').send({ email: who, password });
+  const member = async (who = email) => (await app.get('/api/members').set(auth)).body.find(m => m.email === who);
+
+  it('works only after approval, only from the asking device, and only once', async () => {
+    const oldSession = { Authorization: `Bearer ${(await signIn('demo-pass-1')).body.token}` };
+    const before = sent.length;
+    const { token, code } = await forgot();
+    assert.match(code, /^\d{6}$/);
+    await new Promise(r => setTimeout(r, 100));
+    const notice = sent.slice(before).find(m => m.to === config.adminEmail);
+    assert.match(notice.subject, /password reset request/);
+    assert.ok(!notice.text.includes(code), 'the code is not emailed: the admin must ask the person');
+
+    const listed = await member();
+    assert.deepEqual([listed.passwordReset.status, listed.passwordReset.code], ['requested', code]);
+    assert.ok(!JSON.stringify(listed).includes('tokenHash'));
+    assert.equal(await status(token), 'waiting');
+    assert.equal((await reset(token)).status, 403);
+
+    assert.equal((await approve('000000' === code ? '111111' : '000000')).status, 409);
+    assert.equal((await approve(code)).status, 200);
+    assert.equal(await status(token), 'approved');
+    // knowing the email is not enough: another device has no valid token
+    assert.equal(await status('f'.repeat(64)), 'none');
+    assert.equal((await reset('f'.repeat(64))).status, 403);
+    assert.equal((await reset('')).status, 403);
+    assert.equal((await reset(token, 'short')).status, 400);
+
+    assert.equal((await reset(token)).status, 200);
+    assert.equal((await signIn('brand-new-pass')).status, 200);
+    assert.equal((await signIn('demo-pass-1')).status, 401);
+    assert.equal((await app.get('/api/products').set(oldSession)).status, 401);
+    assert.equal((await reset(token, 'another-pass-1')).status, 403);
+    assert.equal((await member()).passwordReset, undefined);
+  });
+
+  it('does not approve an older code after a newer request, and expires', async () => {
+    const first = await forgot();
+    const second = await forgot();
+    if (first.code !== second.code) assert.equal((await approve(first.code)).status, 409);
+    assert.equal((await approve(second.code)).status, 200);
+    assert.equal(await status(first.token), 'none');
+    await conn.db.collection('users').updateOne({ email }, { $set: { 'resetRequest.expires': new Date(Date.now() - 1000) } });
+    assert.equal(await status(second.token), 'none');
+    assert.equal((await reset(second.token)).status, 403);
+    assert.equal((await member()).passwordReset, undefined);
+  });
+
+  it('can be rejected, and is dropped when the old password is used again', async () => {
+    const a = await forgot();
+    assert.equal((await app.post(`/api/members/${email}/reset/reject`).set(auth)).status, 204);
+    assert.equal(await status(a.token), 'none');
+    const b = await forgot();
+    assert.equal((await signIn('demo-pass-1')).status, 200);
+    assert.equal(await status(b.token), 'none');
+  });
+
+  it('answers the same for unknown accounts and stores nothing for the super admin', async () => {
+    for (const who of ['nobody@example.com', config.adminEmail]) {
+      const res = await app.post('/api/auth/forgot').send({ email: who });
+      assert.equal(res.status, 200, who);
+      assert.deepEqual(Object.keys(res.body).sort(), ['code', 'token']);
+      assert.equal(await status(res.body.token, who), 'none');
+    }
+  });
+
+  it('lets only the right admin decide', async () => {
+    const body = { password: 'longenough1' };
+    for (const who of ['first@example.com', 'second@example.com']) {
+      await app.post('/api/members').set(auth).send({ name: who, email: who, role: 'admin' });
+      await app.post(`/api/members/${who}/activate`).set(auth).send(body);
+    }
+    const bearer = async who => ({ Authorization: `Bearer ${(await signIn(body.password, who)).body.token}` });
+    const first = await bearer('first@example.com');
+    const second = await bearer('second@example.com');
+    await app.post('/api/members').set(first).send({ name: 'S', email: 'staff@example.com', role: 'manager' });
+    await app.post('/api/members/staff@example.com/activate').set(first).send(body);
+
+    const staff = await forgot('staff@example.com');
+    assert.equal((await approve(staff.code, second, 'staff@example.com')).status, 403);
+    const adminRequest = await forgot('first@example.com');
+    assert.equal((await approve(adminRequest.code, first, 'first@example.com')).status, 403, 'not your own');
+    assert.equal((await approve(adminRequest.code, second, 'first@example.com')).status, 403);
+    const manager = { Authorization: `Bearer ${(await signIn('demo-pass-1')).body.token}` };
+    assert.equal((await approve(staff.code, manager, 'staff@example.com')).status, 403);
+    assert.equal((await approve(staff.code, first, 'staff@example.com')).status, 200);
+    assert.equal((await approve(adminRequest.code, auth, 'first@example.com')).status, 200);
+  });
+
+  it('limits how often a reset can be asked for', async () => {
+    for (let i = 0; i < 3; i++) assert.equal((await app.post('/api/auth/forgot').send({ email })).status, 200);
+    const res = await app.post('/api/auth/forgot').send({ email });
+    assert.equal(res.status, 429);
+    assert.match(res.body.error, /Too many requests/);
   });
 });
 

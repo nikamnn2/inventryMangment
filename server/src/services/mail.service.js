@@ -50,6 +50,23 @@ export function createMailer(config) {
 const escapeHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 /** The "activate your account" email. */
+export function passwordResetEmail({ name, email, link, company = 'Invenza' }) {
+  const subject = `${company}: password reset request from ${name}`;
+  const text = [
+    `${name} (${email}) asked to reset their password.`,
+    '',
+    'Before approving, contact them and check that their 6-digit request code matches the one on the Members page:',
+    link,
+    '',
+    'If they did not ask for this, reject the request.',
+  ].join('\n');
+  const html = `<p><strong>${escapeHtml(name)}</strong> (${escapeHtml(email)}) asked to reset their password.</p>
+<p>Before approving, contact them and check that their 6-digit request code matches the one on the Members page.</p>
+<p><a href="${escapeHtml(link)}">Open the Members page</a></p>
+<p>If they did not ask for this, reject the request.</p>`;
+  return { subject, text, html };
+}
+
 export function activationEmail({ name, role, link, company = 'Invenza', hours }) {
   const subject = `Activate your ${company} account`;
   const text = [

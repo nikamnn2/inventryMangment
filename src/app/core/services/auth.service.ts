@@ -9,9 +9,21 @@ import { MODULES } from '../config/modules';
 
 export interface User { email: string; name: string; role: string; modules: string[]; superAdmin?: boolean; }
 
-/** localStorage keys for the saved session. */
+/** A "forgot password" request made in this browser. `token` proves it is the same browser later. */
+export interface PendingReset { email: string; token: string; code: string; }
+
+export type ResetStatus = 'waiting' | 'approved' | 'none';
+
+/** Storage keys for the saved session, and for a password reset waiting for approval. */
 const TOKEN_KEY = 'invenza.token';
 const USER_KEY = 'invenza.user';
+const RESET_KEY = 'invenza.reset';
+
+const messageFrom = (e: unknown, fallback: string): string => {
+  const err = e as HttpErrorResponse;
+  if (err?.status === 0) return 'Cannot reach the server. Check your connection and try again.';
+  return err?.error?.error ?? fallback;
+};
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -35,7 +47,17 @@ export class AuthService {
   }
 
   private read(key: string): string | null {
-    try { return this.browser ? localStorage.getItem(key) : null; } catch { return null; }
+    try { return this.browser ? sessionStorage.getItem(key) ?? localStorage.getItem(key) : null; } catch { return null; }
+  }
+
+  /** Removes the saved session from both places it can be kept. */
+  private forgetSession(): void {
+    try {
+      for (const store of [localStorage, sessionStorage]) {
+        store.removeItem(TOKEN_KEY);
+        store.removeItem(USER_KEY);
+      }
+    } catch { /* storage unavailable */ }
   }
 
   private parseUser(): User | null {
@@ -45,21 +67,77 @@ export class AuthService {
     } catch { return null; }
   }
 
-  /** Resolves to an error message, or null when signed in. */
-  async login(email: string, password: string): Promise<string | null> {
+  /**
+   * Resolves to an error message, or null when signed in. With `remember` ("Keep me signed in") the
+   * sign-in lasts for weeks and survives closing the browser; without it, it ends with the browser.
+   */
+  async login(email: string, password: string, remember = false): Promise<string | null> {
     if (this.disabled) return null; // temporary bypass: no API call, no token
     try {
-      const res = await firstValueFrom(this.http.post<{ token: string; user: User }>('/api/auth/login', { email, password }));
+      const res = await firstValueFrom(this.http.post<{ token: string; user: User }>('/api/auth/login', { email, password, ...(remember && { remember }) }));
       this.token.set(res.token);
       this.user.set(res.user);
+      this.forgetSession();
       try {
-        localStorage.setItem(TOKEN_KEY, res.token);
-        localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+        // the Android app keeps it in localStorage either way: its app lock looks for the sign-in there
+        const store = remember || 'InvenzaApp' in globalThis ? localStorage : sessionStorage;
+        store.setItem(TOKEN_KEY, res.token);
+        store.setItem(USER_KEY, JSON.stringify(res.user));
       } catch { /* storage unavailable: session lasts until reload */ }
+      this.clearReset();
       return null;
     } catch (e) {
       if (e instanceof HttpErrorResponse && e.status === 0) return 'Cannot reach the server. Is the API running?';
       return (e as HttpErrorResponse).error?.error ?? 'Sign in failed.';
+    }
+  }
+
+  /** The reset request waiting in this browser, if any. */
+  pendingReset(): PendingReset | null {
+    try {
+      const saved = JSON.parse((this.browser && localStorage.getItem(RESET_KEY)) || 'null') as PendingReset | null;
+      return saved?.email && saved.token ? saved : null;
+    } catch { return null; }
+  }
+
+  clearReset(): void {
+    try { localStorage.removeItem(RESET_KEY); } catch { /* ignore */ }
+  }
+
+  /** "Forgot password?": asks the admin to allow a new password. Resolves to the request, or an error message. */
+  async forgotPassword(email: string): Promise<PendingReset | string> {
+    try {
+      const res = await firstValueFrom(this.http.post<{ token: string; code: string }>('/api/auth/forgot', { email }));
+      const pending = { email: email.trim().toLowerCase(), token: res.token, code: res.code };
+      try { localStorage.setItem(RESET_KEY, JSON.stringify(pending)); } catch {
+        return 'This browser cannot save the request. Turn off private browsing and try again.';
+      }
+      return pending;
+    } catch (e) {
+      return messageFrom(e, 'Could not send the request. Please try again.');
+    }
+  }
+
+  /** Whether the admin has approved it. Resolves to an error message when the server cannot be asked. */
+  async resetStatus(pending: PendingReset): Promise<{ status: ResetStatus } | string> {
+    try {
+      return await firstValueFrom(this.http.post<{ status: ResetStatus }>('/api/auth/forgot/status', { email: pending.email, token: pending.token }));
+    } catch (e) {
+      return messageFrom(e, 'Could not check the request. Please try again.');
+    }
+  }
+
+  /** Sets the new password for an approved request. Resolves to an error message, or null on success. */
+  async resetPassword(pending: PendingReset, password: string): Promise<string | null> {
+    try {
+      await firstValueFrom(this.http.post('/api/auth/forgot/reset', { email: pending.email, token: pending.token, password }));
+      this.clearReset();
+      this.forgetSession();
+      this.token.set(null);
+      this.user.set(null);
+      return null;
+    } catch (e) {
+      return messageFrom(e, 'Could not change the password. Please try again.');
     }
   }
 
@@ -86,10 +164,7 @@ export class AuthService {
   logout(): void {
     this.token.set(null);
     this.user.set(null);
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    } catch { /* ignore */ }
+    this.forgetSession();
     this.router.navigateByUrl('/login');
   }
 }

@@ -6,7 +6,7 @@ describe('app routes', () => {
 
   it('lazy-loads a component for every page', async () => {
     const loaders = all(routes).filter(r => r.loadComponent);
-    expect(loaders.length).toBe(14); // login, activate, shell and eleven pages
+    expect(loaders.length).toBe(15); // login, activate, reset password, shell and eleven pages
     for (const r of loaders) {
       expect(await (r.loadComponent as () => Promise<unknown>)()).toBeTruthy();
     }
