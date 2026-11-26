@@ -114,7 +114,7 @@
           <div class="st-profile">
             Profile: <strong [class.long]="data.productName(b.code).length > 16">{{ data.productName(b.code) }}</strong>
             <!-- the rack value is what is printed as "Label"; "—" is what an empty rack is saved as -->
-            @if (b.rack && b.rack !== '—' && b.rack !== '-') { <div class="st-label">Label: <strong class="st-note" [class.long]="b.rack.length > 14">{{ b.rack }}</strong></div> }
+            @if (b.rack && b.rack !== '—' && b.rack !== '-') { <div class="st-label" [class.long]="b.rack.length > 12">Label: <strong class="st-note">{{ firstCapital(b.rack) }}</strong></div> }
           </div>
           <app-qrcode class="st-qr" [value]="b.id" />
         </div>

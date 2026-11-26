@@ -43,6 +43,12 @@ export class BundlesComponent {
     return this.data.bundles().filter(b => !q || `${b.id} ${b.code} ${this.data.productName(b.code)} ${b.rack}`.toLowerCase().includes(q));
   }
 
+  /** First letter capital, the rest small: "BLACK" and "black" both give "Black". */
+  protected firstCapital(text: string): string {
+    const value = text.trim();
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
+
   /** Average weight per piece shown in the form. */
   protected avg(): string {
     return this.form.pieces > 0 ? (this.form.weight / this.form.pieces).toFixed(3) : '';

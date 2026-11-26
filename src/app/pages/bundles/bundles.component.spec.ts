@@ -102,7 +102,12 @@ describe('BundlesComponent', () => {
     const note = () => fixture.nativeElement.querySelector('.sticker .st-label')?.textContent.replace(/\s+/g, ' ').trim() ?? null;
     c.label.set(bundle);
     fixture.detectChanges();
-    expect(note()).toBe('Label: BLACK');
+    expect(note()).toBe('Label: Black');
+    for (const [rack, printed] of [['black', 'Black'], ['  MATT BLACK ', 'Matt black'], ['a-01', 'A-01']]) {
+      c.label.set({ ...bundle, rack });
+      fixture.detectChanges();
+      expect(note()).toBe('Label: ' + printed);
+    }
     for (const rack of ['', '—', '-']) {
       c.label.set({ ...bundle, rack });
       fixture.detectChanges();

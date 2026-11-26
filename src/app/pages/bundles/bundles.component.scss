@@ -48,11 +48,12 @@
   .st-profile { flex: 1; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: anywhere; font-size: calc(var(--u) * 5.2); font-weight: 700; -webkit-text-stroke: 0.1mm #000; }
   /* the name itself: bigger, and outlined as well as bold, because thermal printing thins the letters */
   .st-profile strong { display: block; font-family: Arimo, Arial, Helvetica, sans-serif; font-size: calc(var(--u) * 7.4); font-weight: 700; -webkit-text-stroke: 0.15mm #000; }
-  .st-label { margin-top: calc(var(--u) * 1.6); }
-  .st-profile .st-note { display: inline; font-size: calc(var(--u) * 6.4); line-height: 1.08; }
+  /* "Label:" and its value: the same font and size */
+  .st-label { margin-top: calc(var(--u) * 1.6); font-family: Arimo, Arial, Helvetica, sans-serif; font-size: calc(var(--u) * 6.4); font-weight: 700; line-height: 1.08; }
+  .st-label.long { font-size: calc(var(--u) * 4.6); }
+  .st-profile .st-note { display: inline; font-size: inherit; }
   /* long text prints smaller, so the name and the sticker label both fit */
   .st-profile strong.long { font-size: calc(var(--u) * 4.8); -webkit-text-stroke-width: 0.1mm; line-height: 1.08; }
-  .st-profile .st-note.long { font-size: calc(var(--u) * 4.6); }
   .st-qr ::ng-deep svg { width: calc(var(--u) * 29) !important; height: calc(var(--u) * 29) !important; }
   /* full width: a 16-character ID needs it to keep the bars about 2 printer dots wide at 203 dpi */
   .st-barcode { width: 100%; }
