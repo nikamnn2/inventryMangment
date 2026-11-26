@@ -1,4 +1,4 @@
-/** Purpose: client for the admin-only Members API: list, invite, resend activation e-mail, edit and delete team members. */
+/** Purpose: client for the admin-only Members API: list, invite, resend activation e-mail, activate by hand, edit and delete team members. */
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
@@ -63,6 +63,16 @@ export class MembersService {
       return { error: null, emailSent: res.emailSent };
     } catch (e) {
       return { error: message(e), emailSent: false };
+    }
+  }
+
+  /** Activates a pending member without the email, using a password the admin passes on to them. */
+  async activate(email: string, password: string): Promise<string | null> {
+    try {
+      await firstValueFrom(this.http.post<Member>(`/api/members/${encodeURIComponent(email)}/activate`, { password }));
+      return await this.load();
+    } catch (e) {
+      return message(e);
     }
   }
 

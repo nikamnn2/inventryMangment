@@ -161,6 +161,44 @@ describe('MembersComponent', () => {
       expect(c.loadError()).toBe('This member has already activated their account.');
     }));
 
+    it('offers activation only for pending members the caller may manage', () => {
+      const { svc, fixture } = setup('adm@x.y', false);
+      svc.members.set([STAFF, PENDING, { ...PENDING, email: 'padm@x.y', role: 'admin' }]);
+      fixture.detectChanges();
+      const buttons = Array.from<HTMLButtonElement>(fixture.nativeElement.querySelectorAll('button'));
+      expect(buttons.filter(b => b.textContent?.trim() === 'Activate').length).toBe(1);
+    });
+
+    it('activates a pending member with the typed password', fakeAsync(() => {
+      const { svc, fixture, c } = setup('root@x.y', true);
+      const activate = spyOn(svc, 'activate').and.resolveTo(null);
+      c.openActivate(PENDING);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Activate Newbie');
+      c.activatePassword = 'short';
+      c.activate(new Event('submit'));
+      tick();
+      expect(c.error()).toBe('Password must be at least 8 characters.');
+      expect(activate).not.toHaveBeenCalled();
+      c.activatePassword = 'handpass123';
+      c.activate(new Event('submit'));
+      tick();
+      expect(activate).toHaveBeenCalledWith('new@x.y', 'handpass123');
+      expect(c.activating()).toBeNull();
+      expect(c.saved()).toBe('Newbie is now active.');
+      tick(2500);
+    }));
+
+    it('keeps the activation dialog open when the server refuses', async () => {
+      const { svc, c } = setup('root@x.y', true);
+      spyOn(svc, 'activate').and.resolveTo('This member has already activated their account.');
+      c.openActivate(PENDING);
+      c.activatePassword = 'handpass123';
+      await c.activate(new Event('submit'));
+      expect(c.error()).toBe('This member has already activated their account.');
+      expect(c.activating()).toEqual(PENDING);
+    });
+
     it('closes without saving', () => {
       const { c } = setup('root@x.y', true);
       c.open();

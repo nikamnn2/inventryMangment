@@ -420,6 +420,49 @@ describe('members', () => {
     assert.equal((await api.post('/api/members/asha@example.com/resend').set(auth)).status, 409);
   });
 
+  it('activates a member by hand when the email does not arrive', async () => {
+    await post('/api/members', valid);
+    const token = tokenFrom(sent.at(-1));
+    const url = '/api/members/asha@example.com/activate';
+    assert.equal((await api.post(url).set(auth).send({})).status, 400);
+    assert.equal((await api.post(url).set(auth).send({ password: 'short' })).status, 400);
+
+    const res = await api.post(url).set(auth).send({ password: 'handpass123' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.status, 'active');
+    assert.equal(res.body.passwordHash, undefined);
+    assert.ok((await login('asha@example.com', 'handpass123')).token);
+    // the emailed link stops working, and an active account cannot be activated again
+    assert.equal((await api.get(`/api/auth/activate/${token}`)).status, 404);
+    assert.equal((await api.post(url).set(auth).send({ password: 'otherpass123' })).status, 409);
+    assert.ok((await login('asha@example.com', 'handpass123')).token);
+    assert.equal((await api.post('/api/members/ghost@example.com/activate').set(auth).send({ password: 'handpass123' })).status, 404);
+  });
+
+  it('lets the super admin activate admins and an admin activate only their own employees', async () => {
+    const body = { password: 'handpass123' };
+    const activate = (email, headers) => api.post(`/api/members/${email}/activate`).set(headers).send(body);
+    await register({ ...valid, email: 'first@example.com', role: 'admin' });
+    await register({ ...valid, email: 'second@example.com', role: 'admin' });
+    const first = bearer((await login('first@example.com', 'longenough1')).token);
+    const second = bearer((await login('second@example.com', 'longenough1')).token);
+    await api.post('/api/members').set(first).send({ ...valid, email: 'staff@example.com', role: 'manager' });
+    await post('/api/members', { ...valid, email: 'newadmin@example.com', role: 'admin' });
+
+    assert.equal((await activate('staff@example.com', second)).status, 404);
+    assert.equal((await activate('newadmin@example.com', first)).status, 404);
+    // an admin who once added someone still cannot activate them after they become an admin
+    await put('/api/members/staff@example.com', { name: 'S', role: 'admin' });
+    assert.equal((await activate('staff@example.com', first)).status, 404);
+    await put('/api/members/staff@example.com', { name: 'S', role: 'manager' });
+
+    assert.equal((await activate('staff@example.com', first)).status, 200);
+    assert.equal((await activate('newadmin@example.com', auth)).status, 200);
+    for (const email of ['staff@example.com', 'newadmin@example.com']) {
+      assert.ok((await login(email, body.password)).token, email);
+    }
+  });
+
   it('lists members without secrets and flags the super admin', async () => {
     await post('/api/members', valid);
     const res = await get('/api/members');
@@ -515,6 +558,7 @@ describe('members', () => {
       assert.equal((await api.get('/api/members').set(headers)).status, 403, email);
       assert.equal((await api.post('/api/members').set(headers).send(valid)).status, 403, email);
       assert.equal((await api.post('/api/members/asha@example.com/resend').set(headers)).status, 403, email);
+      assert.equal((await api.post('/api/members/asha@example.com/activate').set(headers).send({ password: 'handpass123' })).status, 403, email);
     }
   });
 });

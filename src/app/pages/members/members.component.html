@@ -24,6 +24,7 @@
             @if (isSuper()) { <td data-label="Added by">{{ m.addedBy || '—' }}</td> }
             <td class="right">
               @if (m.status === 'pending' && canManage(m)) { <button class="btn sm" type="button" (click)="resend(m)">Resend email</button> }
+              @if (m.status === 'pending' && canManage(m)) { <button class="btn sm" type="button" (click)="openActivate(m)">Activate</button> }
               @if (canManage(m)) { <button class="btn sm" type="button" (click)="open(m)">Edit</button> }
               @if (canDelete(m)) { <button class="btn sm danger-text" type="button" (click)="confirming.set(m)">Remove</button> }
             </td>
@@ -58,6 +59,24 @@
       <div class="form-actions">
         <button class="btn" type="button" (click)="close()">Cancel</button>
         <button class="btn primary" type="submit">{{ editing() ? 'Save changes' : 'Register and send email' }}</button>
+      </div>
+    </form>
+  </div>
+}
+
+<!-- Activate by hand dialog, for when the activation email does not arrive. -->
+@if (activating(); as m) {
+  <div class="modal-scrim" (click)="activating.set(null)">
+    <form class="modal" (click)="$event.stopPropagation()" (submit)="activate($event)" role="dialog" aria-modal="true" aria-label="Activate member">
+      <h2>Activate {{ m.name }}</h2>
+      <p class="card-note" style="margin-bottom:16px">Use this if the activation email did not arrive. Set a password and give it to {{ m.email }} privately. The emailed link will stop working.</p>
+      <div class="form-grid">
+        <div class="field wide"><label>Password *</label><input class="input" name="activatePassword" type="text" [(ngModel)]="activatePassword" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="At least 8 characters" /></div>
+      </div>
+      @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="activating.set(null)">Cancel</button>
+        <button class="btn primary" type="submit">Activate account</button>
       </div>
     </form>
   </div>

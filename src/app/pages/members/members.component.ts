@@ -8,7 +8,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 /** Empty member form (new members default to the accountant role). */
 const blank = (): MemberForm => ({ name: '', email: '', role: 'accountant', password: '' });
 
-/** Purpose: Members page (admin only): invite team members by e-mail, change roles / passwords, resend activation links and remove people. */
+/** Purpose: Members page (admin only): invite team members by e-mail, change roles / passwords, resend activation links, activate by hand and remove people. */
 @Component({
   selector: 'app-members',
   imports: [FormsModule, IconComponent],
@@ -24,6 +24,8 @@ export class MembersComponent {
   protected readonly dialog = signal(false);
   protected readonly editing = signal<Member | null>(null);
   protected readonly confirming = signal<Member | null>(null);
+  protected readonly activating = signal<Member | null>(null);
+  protected activatePassword = '';
   protected readonly error = signal('');
   protected readonly loadError = signal('');
   protected readonly saved = signal('');
@@ -98,6 +100,32 @@ export class MembersComponent {
     }
     this.close();
     this.flashInvite(f.email, result.emailSent, 'registered');
+  }
+
+  /** Opens the dialog that activates a pending member without the email. */
+  protected openActivate(m: Member): void {
+    this.activatePassword = '';
+    this.error.set('');
+    this.activating.set(m);
+  }
+
+  /** Activates the chosen member with the password typed in the dialog. */
+  protected async activate(e: Event): Promise<void> {
+    e.preventDefault();
+    const m = this.activating();
+    if (!m) return;
+    if (this.activatePassword.length < 8) {
+      this.error.set('Password must be at least 8 characters.');
+      return;
+    }
+    const err = await this.members.activate(m.email, this.activatePassword);
+    if (err) {
+      this.error.set(err);
+      return;
+    }
+    this.activating.set(null);
+    this.activatePassword = '';
+    this.flash(`${m.name} is now active.`);
   }
 
   /** Sends the activation email again to a member who has not activated yet. */

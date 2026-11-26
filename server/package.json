@@ -12,6 +12,7 @@
     "start:prod": "node src/server.js --prod",
     "seed:prod": "node scripts/seed.js --prod",
     "mail:test": "node scripts/mail-test.js",
+    "password": "node scripts/set-password.js",
     "dev": "node --watch src/server.js",
     "dev:memory": "node scripts/dev-memory.js",
     "seed": "node scripts/seed.js",

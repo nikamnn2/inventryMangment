@@ -1,8 +1,8 @@
-/** Purpose: request handlers for managing team members: invite (with activation e-mail), resend, edit role / password and delete, with the super-admin protections. */
+/** Purpose: request handlers for managing team members: invite (with activation e-mail), resend, activate by hand, edit role / password and delete, with the super-admin protections. */
 import { COLLECTIONS as C } from '../database/collections.js';
 import { hashPassword, newActivation } from '../services/auth.service.js';
 import { activationEmail } from '../services/mail.service.js';
-import { canSeeMember, isSuperAdmin, memberView,parseMemberUpdate, parseNewMember } from '../models/user.model.js';
+import { canSeeMember, isSuperAdmin, memberView, parseMemberUpdate, parseNewMember, parsePassword } from '../models/user.model.js';
 import { HttpError } from '../utils/index.js';
 
 const NO_SECRETS = { projection: { _id: 0, passwordHash: 0, activationHash: 0, activationExpires: 0 } };
@@ -53,6 +53,28 @@ export function membersController({ db, config, mailer }) {
       if (current.role === 'admin' && !isSuperAdmin(req.user.sub, config)) throw new HttpError(403, ONLY_SUPER);
       if ((current.status ?? 'active') !== 'pending') throw new HttpError(409, 'This member has already activated their account.');
       res.json({ emailSent: await sendActivation(current) });
+    },
+
+    /**
+     * Activates a pending member by hand, for when the activation email does not arrive: the caller sets a
+     * password and passes it on. Admins can only be activated by the super admin.
+     */
+    async activate(req, res) {
+      const email = req.params.email.toLowerCase();
+      const current = await users.findOne({ email });
+      if (!current || !visible(current, req)) throw new HttpError(404, 'Member not found.');
+      if (current.role === 'admin' && !isSuperAdmin(req.user.sub, config)) throw new HttpError(403, ONLY_SUPER);
+      const password = parsePassword(req.body?.password, { required: true });
+      // matching on "pending" means a password the member has just chosen through the link is never overwritten
+      const result = await users.updateOne(
+        { email, status: 'pending' },
+        {
+          $set: { passwordHash: await hashPassword(password), status: 'active', activatedAt: new Date(), activatedBy: req.user.sub.toLowerCase() },
+          $unset: { activationHash: '', activationExpires: '' },
+        },
+      );
+      if (!result.matchedCount) throw new HttpError(409, 'This member has already activated their account.');
+      res.json(view({ ...current, status: 'active' }, req));
     },
 
     /** Changes a member's name, role or password (an empty password keeps the current one). */

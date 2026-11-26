@@ -70,7 +70,7 @@
 @if (label(); as b) {
   <div class="modal-scrim" (click)="label.set(null)">
     <div class="modal label-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Bundle label">
-      <div class="sheet label">
+      <div class="label no-print">
         <div class="label-bar">
           <h2 class="label-title">Bundle Details</h2>
           <div class="label-tools no-print">
@@ -97,6 +97,22 @@
           <figure><figcaption>Barcode</figcaption><span class="code-box"><app-barcode [value]="b.id" [height]="64" [moduleWidth]="1.4" /><span class="mono-id">{{ b.id }}</span></span></figure>
           <figure><figcaption>QR Code</figcaption><span class="code-box"><app-qrcode [value]="b.id" [px]="108" /></span></figure>
         </div>
+      </div>
+
+      <!-- The 63 x 63 mm sticker: hidden on screen, and the only thing that is printed. -->
+      <div class="sheet sticker">
+        <div class="st-title">BUNDLE: {{ b.id }}</div>
+        <div class="st-table">
+          <div><strong>{{ b.pieces }}</strong><small>PCS</small></div>
+          <div><small>WEIGHT</small><strong>{{ b.weight | number: '1.2-2' }}</strong></div>
+          <div><small>AVG WT</small><strong>{{ b.pieces ? (b.weight / b.pieces | number: '1.3-3') : '-' }}</strong></div>
+        </div>
+        <div class="st-row"><span>DIE: {{ b.code || '-' }}</span><span>SIZE: {{ data.product(b.code)?.size || '-' }}</span></div>
+        <div class="st-middle">
+          <div class="st-profile">Profile: {{ data.productName(b.code) }}</div>
+          <app-qrcode class="st-qr" [value]="b.id" />
+        </div>
+        <app-barcode class="st-barcode" [value]="b.id" />
       </div>
       <p class="card-note no-print" style="margin-top:12px">Printing a label does not create a new bundle. The barcode and QR code both carry the bundle ID.</p>
     </div>
