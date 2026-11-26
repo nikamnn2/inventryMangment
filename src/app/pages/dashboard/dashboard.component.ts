@@ -1,8 +1,15 @@
-import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { DecimalPipe, isPlatformBrowser } from '@angular/common';
+import { Component, DestroyRef, NgZone, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../core/services/auth.service';
 import { DashboardSummary, DataService, Status } from '../../core/services/data.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+
+/** Greeting for the time of day: morning from 05:00, afternoon from 12:00, evening from 17:00 until 05:00. */
+export function greetingFor(date: Date): string {
+  const hour = date.getHours();
+  return hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 17 ? 'Good afternoon' : 'Good evening';
+}
 
 /** Purpose: Dashboard page: key figures, stock per bundle, status split, today's activity and the 7-day sales trend. */
 @Component({
@@ -13,6 +20,16 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 })
 export class DashboardComponent {
   protected readonly data = inject(DataService);
+  private readonly auth = inject(AuthService);
+
+  /** The current time, refreshed while the page is open so the greeting follows the clock. */
+  private readonly now = signal(new Date());
+
+  /** For example "Good evening, Ganesh", using the first name of whoever is signed in. */
+  protected readonly greeting = computed(() => {
+    const first = this.auth.user()?.name.trim().split(/\s+/)[0];
+    return first ? `${greetingFor(this.now())}, ${first}` : greetingFor(this.now());
+  });
 
   /** The four headline tiles (products, bundles, total pieces, stock weight). */
   protected readonly kpis = computed(() => [
@@ -26,6 +43,11 @@ export class DashboardComponent {
   private readonly summary = signal<DashboardSummary | null>(null);
 
   constructor() {
+    // browser only (a timer would stall server rendering), and outside Angular's zone so the app still counts as idle
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      const timer = inject(NgZone).runOutsideAngular(() => setInterval(() => this.now.set(new Date()), 30_000));
+      inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    }
     void this.data.getDashboard().then(s => this.summary.set(s)).catch(() => undefined);
   }
 

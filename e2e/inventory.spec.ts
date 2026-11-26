@@ -32,7 +32,7 @@ test.describe('Login', () => {
 
   test('signing in navigates to the dashboard', async ({ page }) => {
     await signIn(page);
-    await expect(page.getByRole('heading', { name: /Good day/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)/ })).toBeVisible();
   });
 
   test('wrong password shows an error and stays on login', async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe('Login', () => {
   test('the session survives a reload and ends on sign out', async ({ page }) => {
     await signIn(page);
     await page.reload();
-    await expect(page.getByRole('heading', { name: /Good day/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)/ })).toBeVisible();
     await page.getByLabel('Sign out').click();
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/login/);
@@ -115,7 +115,7 @@ test.describe('App shell & menus', () => {
     await signIn(page);
     const menus: [string, string][] = [
       ['Products', 'Products'], ['Bundles', 'Bundles'], ['Sales', 'Sales'], ['Stock Overview', 'Stock Overview'],
-      ['Customers', 'Customers'], ['Suppliers', 'Suppliers'], ['Reports', 'Reports'], ['Settings', 'Settings'], ['Dashboard', 'Good day'],
+      ['Customers', 'Customers'], ['Suppliers', 'Suppliers'], ['Reports', 'Reports'], ['Settings', 'Settings'], ['Dashboard', 'Good '],
     ];
     for (const [link, heading] of menus) {
       await page.getByRole('navigation').getByRole('link', { name: link }).click();

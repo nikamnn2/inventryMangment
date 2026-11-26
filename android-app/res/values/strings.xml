@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the website the app shows; change it here, then run build-apk.sh again -->
+    <string name="site_url" translatable="false">https://shrisiddheshwar.sahyadriinfotech.com/</string>
+</resources>

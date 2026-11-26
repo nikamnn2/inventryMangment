@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
+import { AuthService } from '../../core/services/auth.service';
 import { DataService } from '../../core/services/data.service';
 import { baseProviders, fillData } from '../../testing/fixtures';
-import { DashboardComponent } from './dashboard.component';
+import { DashboardComponent, greetingFor } from './dashboard.component';
 
 const summary = {
   today: { packed: 2, bills: 3, revenue: 5000 },
@@ -16,6 +17,31 @@ describe('DashboardComponent', () => {
     TestBed.configureTestingModule({ imports: [DashboardComponent], providers: baseProviders() });
     data = TestBed.inject(DataService);
     fillData(data);
+  });
+
+  it('picks the greeting from the time of day', () => {
+    const at = (h: number, m = 0) => greetingFor(new Date(2026, 0, 1, h, m));
+    expect([at(5), at(11, 59)]).toEqual(['Good morning', 'Good morning']);
+    expect([at(12), at(16, 59)]).toEqual(['Good afternoon', 'Good afternoon']);
+    expect([at(17), at(23, 59), at(0), at(4, 59)]).toEqual(Array(4).fill('Good evening'));
+  });
+
+  it('greets whoever is signed in by first name, and follows a change of user', async () => {
+    spyOn(data, 'getDashboard').and.resolveTo(summary);
+    const auth = TestBed.inject(AuthService);
+    auth.user.set({ email: 'g@x.y', name: '  Ganesh Patil ', role: 'admin', modules: [] });
+    const fixture = TestBed.createComponent(DashboardComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const heading = () => fixture.nativeElement.querySelector('h1').textContent.trim();
+
+    expect(heading()).toBe(`${greetingFor(new Date())}, Ganesh 👋`);
+    auth.user.set({ email: 'a@x.y', name: 'Asha', role: 'admin', modules: [] });
+    fixture.detectChanges();
+    expect(heading()).toContain(', Asha');
+    auth.user.set(null);
+    fixture.detectChanges();
+    expect(heading()).toBe(`${greetingFor(new Date())} 👋`);
   });
 
   it('shows API numbers once the summary loads', async () => {
