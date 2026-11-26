@@ -1,4 +1,5 @@
 /** Purpose: request handlers for login, the "who am I" check and account activation. */
+import { randomUUID } from 'node:crypto';
 import { COLLECTIONS as C } from '../database/collections.js';
 import { checkPassword, hashPassword, hashToken, signToken } from '../services/auth.service.js';
 import { parsePassword, publicUser } from '../models/user.model.js';
@@ -6,6 +7,9 @@ import { HttpError, str } from '../utils/index.js';
 
 /** Same message for unknown, used and expired links so nothing is leaked about which one it is. */
 const BAD_LINK = 'This activation link is invalid or has expired. Ask your admin to send a new one.';
+
+/** Compared against when there is no password to check, so the response time does not reveal which accounts exist. */
+const NO_PASSWORD = hashPassword(randomUUID());
 
 export function authController({ db, config }) {
   const users = db.collection(C.users);
@@ -26,7 +30,8 @@ export function authController({ db, config }) {
       const user = await users.findOne({ email });
       if (user?.status === 'pending') throw new HttpError(403, 'Your account is not activated yet. Open the activation link we emailed you.');
       // same message for unknown user and wrong password
-      if (!user || !(await checkPassword(password, user.passwordHash))) throw new HttpError(401, 'Invalid email or password.');
+      const matches = await checkPassword(password, user?.passwordHash ?? (await NO_PASSWORD));
+      if (!user?.passwordHash || !matches) throw new HttpError(401, 'Invalid email or password.');
       res.json({ token: signToken(user, config), user: publicUser(user, config) });
     },
 

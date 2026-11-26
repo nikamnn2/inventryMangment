@@ -114,6 +114,7 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMediaPlaybackRequiresUserGesture(false); // camera preview
+        settings.setTextZoom(100); // the phone's font-size setting must not enlarge, and so change, printed labels
         web.addJavascriptInterface(new Bridge(), "InvenzaApp");
         web.setWebViewClient(new SiteClient());
         web.setWebChromeClient(new CameraClient());

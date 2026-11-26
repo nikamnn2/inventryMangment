@@ -3,11 +3,12 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService, Sale } from '../../core/services/data.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Purpose: Sales page: record a sale from a bundle (scan or pick it), preview the bill and browse sales history. */
 @Component({
   selector: 'app-sales',
-  imports: [FormsModule, IconComponent, DecimalPipe, NgTemplateOutlet],
+  imports: [FormsModule, IconComponent, DecimalPipe, NgTemplateOutlet, PagerComponent],
   templateUrl: './sales.component.html',
   styleUrl: './sales.component.scss',
 })
@@ -32,6 +33,8 @@ export class SalesComponent {
     if (q > b.pieces) return 'Not enough stock';
     return `${b.pieces - q} pcs · ${(b.weight - (b.weight / b.pieces) * q).toFixed(2)} kg`;
   });
+
+  protected readonly history = createPager(() => this.data.sales());
 
   /** Looks a bundle up from a scanned / typed ID and selects it. */
   protected async find(e: Event): Promise<void> {

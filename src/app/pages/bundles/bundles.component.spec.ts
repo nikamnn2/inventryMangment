@@ -94,4 +94,22 @@ describe('BundlesComponent', () => {
     c.print();
     expect(print).toHaveBeenCalled();
   });
+
+  it('keeps the sticker label in the form and prints it on the sticker only when set', () => {
+    const fixture = TestBed.createComponent(BundlesComponent);
+    const c = fixture.componentInstance as any;
+    const bundle = { id: 'x1', code: 'AL-1001', pieces: 1, weight: 1, packed: '2026-11-26', status: 'Packed', rack: 'A', stickerText: 'URGENT ORDER' };
+    c.open(bundle);
+    expect(c.form.stickerText).toBe('URGENT ORDER');
+    c.open();
+    expect(c.form.stickerText).toBe('');
+
+    c.dialog.set(false);
+    c.label.set(bundle);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.sticker .st-note').textContent.trim()).toBe('URGENT ORDER');
+    c.label.set({ ...bundle, stickerText: undefined });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.sticker .st-note')).toBeNull();
+  });
 });

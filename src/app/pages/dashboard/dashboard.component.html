@@ -22,14 +22,14 @@
 
 <div class="grid cols-4 mt">
   @for (k of kpis(); track k.label) {
-    <div class="card kpi">
+    <a class="card kpi" [routerLink]="k.label === 'Bundles' ? bundlesLink() : null">
       <span class="kpi-icon" [class]="k.tone"><app-icon [name]="k.icon" [size]="20" /></span>
       <div>
         <div class="kpi-label">{{ k.label }}</div>
         <div class="kpi-value">{{ k.value }}<small>{{ k.unit }}</small></div>
         <div class="kpi-note">{{ k.note }}</div>
       </div>
-    </div>
+    </a>
   }
 </div>
 
@@ -40,13 +40,13 @@
       <div><div class="card-title">Stock by bundle</div><div class="card-note">Available pieces in each bundle</div></div>
       <span class="tag">PCS</span>
     </div>
-    <div class="bars" role="img" aria-label="Pieces available per bundle">
+    <div class="bars" role="group" aria-label="Pieces available per bundle">
       @for (b of bars(); track b.id) {
-        <div class="bar-col">
+        <a class="bar-col" [routerLink]="bundlesLink()" [queryParams]="{ q: b.id }" [title]="'Bundle ' + b.id">
           <span class="bar-val">{{ b.pieces }}</span>
           <div class="bar" [class.glass]="b.glass" [class.low]="b.low" [style.height.%]="b.h"></div>
           <span class="bar-lab">{{ b.code }}</span>
-        </div>
+        </a>
       }
     </div>
     <div class="legend">
@@ -61,7 +61,7 @@
       <!-- Donut chart: Packed / Shipped / Sold split. -->
       <div><div class="card-title">Bundle status</div><div class="card-note">{{ data.bundleCount() }} bundles in total</div></div>
     </div>
-    <div class="donut-row">
+    <a class="donut-row" [routerLink]="bundlesLink()" title="Open bundles">
       <div class="donut" [style.background]="donut()" role="img" aria-label="Bundle status split">
         <div><b>{{ data.bundleCount() }}</b><span>Bundles</span></div>
       </div>
@@ -70,7 +70,7 @@
           <li><i [class]="'dot ' + s.cls"></i>{{ s.name }}<b>{{ s.count }}</b></li>
         }
       </ul>
-    </div>
+    </a>
   </div>
 </div>
 
@@ -101,11 +101,11 @@
     </div>
     <div class="alerts">
       @for (b of data.lowStock(); track b.id) {
-        <div class="alert">
+        <a class="alert" [routerLink]="bundlesLink()" [queryParams]="{ q: b.id }">
           <app-icon name="alert" [size]="18" />
           <div><strong>{{ data.productName(b.code) }}</strong><small>Rack {{ b.rack }} · <span class="mono">{{ b.id }}</span></small></div>
           <span class="badge warn">{{ b.pieces }} pcs</span>
-        </div>
+        </a>
       } @empty { <div class="notice ok">All bundles are above the threshold.</div> }
     </div>
   </div>
@@ -121,9 +121,9 @@
     <table class="tbl stack">
       <thead><tr><th>Bundle ID</th><th>Product</th><th>Type</th><th class="right">Pieces</th><th class="right">Weight</th><th>Status</th></tr></thead>
       <tbody>
-        @for (b of data.bundles().slice(0, 5); track b.id) {
-          <tr>
-            <td class="mono" data-label="Bundle ID">{{ b.id }}</td>
+        @for (b of recent.rows(); track b.id) {
+          <tr [class.clickable]="bundlesLink()" (click)="openBundle(b.id)">
+            <td class="mono" data-label="Bundle ID"><a [routerLink]="bundlesLink()" [queryParams]="{ q: b.id }" (click)="$event.stopPropagation()">{{ b.id }}</a></td>
             <td data-label="Product"><strong>{{ data.productName(b.code) }}</strong></td>
             <td data-label="Type"><span class="cat" [class.glass]="data.categoryOf(b.code) === 'Glass'"><i></i>{{ data.categoryOf(b.code) }}</span></td>
             <td class="right" data-label="Pieces">{{ b.pieces }} pcs</td>
@@ -134,4 +134,5 @@
       </tbody>
     </table>
   </div>
+  <app-pager [pager]="recent" />
 </div>

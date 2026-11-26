@@ -7,20 +7,20 @@
 <div class="card">
   <div class="card-head">
     <div><div class="card-title">Product list</div><div class="card-note">{{ filtered().length }} of {{ data.products().length }} products</div></div>
-    <div class="row">
+    <div class="row toolbar">
       <div class="chips">
         @for (c of cats; track c) {
           <button type="button" class="chip" [class.active]="cat() === c" (click)="cat.set(c)">{{ c }}</button>
         }
       </div>
-      <input class="input" style="width:220px" type="search" placeholder="Search name, Die No…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+      <input class="input" type="search" placeholder="Search name, Die No…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
     </div>
   </div>
   <div class="table-wrap">
     <table class="tbl stack">
       <thead><tr><th>Die No</th><th>Product name</th><th>Type</th><th>Size</th><th>CL value</th><th>Finish</th><th></th></tr></thead>
       <tbody>
-        @for (p of filtered(); track p.code) {
+        @for (p of pager.rows(); track p.code) {
           <tr>
             <td class="mono" data-label="Die No">{{ p.code }}</td>
             <td data-label="Product name"><strong>{{ p.name }}</strong></td>
@@ -34,6 +34,7 @@
       </tbody>
     </table>
   </div>
+  <app-pager [pager]="pager" />
 </div>
 
 <!-- Add / edit product dialog. -->

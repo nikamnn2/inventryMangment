@@ -3,11 +3,12 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Purpose: Stock Overview page: every bundle with filters (available / sold, product, search), per-category totals and a CSV export. */
 @Component({
   selector: 'app-stock',
-  imports: [IconComponent, DecimalPipe, FormsModule],
+  imports: [IconComponent, DecimalPipe, FormsModule, PagerComponent],
   templateUrl: './stock.component.html',
   styleUrl: './stock.component.scss',
 })
@@ -27,6 +28,8 @@ export class StockComponent {
         (!q || `${b.id} ${b.code} ${this.data.productName(b.code)} ${b.rack}`.toLowerCase().includes(q)))
       .sort((a, b) => this.data.productName(a.code).localeCompare(this.data.productName(b.code)));
   });
+
+  protected readonly pager = createPager(() => this.rows(), () => `${this.state()}|${this.profile()}|${this.q()}`);
 
   /** Pieces, bundles and weight per category, with its share of total stock. */
   protected readonly summary = computed(() => {

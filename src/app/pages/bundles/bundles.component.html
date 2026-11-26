@@ -7,8 +7,8 @@
 <div class="card">
   <div class="card-head">
     <div><div class="card-title">Bundle list</div><div class="card-note">IDs, stock and status in one place</div></div>
-    <div class="row">
-      <input class="input" style="width:220px" type="search" placeholder="Search bundle ID, product…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+    <div class="row toolbar">
+      <input class="input" type="search" placeholder="Search bundle, product…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
       <span class="tag">{{ data.bundles().length }} bundles</span>
     </div>
   </div>
@@ -16,10 +16,10 @@
     <table class="tbl stack">
       <thead><tr><th>Bundle ID</th><th>Product</th><th class="right">Pieces</th><th class="right">Weight</th><th class="right">Avg / pc</th><th>Rack</th><th>Packed</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        @for (b of list(); track b.id) {
+        @for (b of pager.rows(); track b.id) {
           <tr>
             <td class="mono" data-label="Bundle ID">{{ b.id }}</td>
-            <td data-label="Product"><strong>{{ data.productName(b.code) }}</strong><div class="muted small">Die No {{ b.code }}</div></td>
+            <td data-label="Product"><div><strong>{{ data.productName(b.code) }}</strong><div class="muted small">Die No {{ b.code }}</div></div></td>
             <td class="right" data-label="Pieces">{{ b.pieces }}</td>
             <td class="right" data-label="Weight">{{ b.weight | number: '1.1-2' }} kg</td>
             <td class="right" data-label="Avg / pc">{{ b.pieces ? (b.weight / b.pieces | number: '1.2-3') : '—' }} kg</td>
@@ -35,6 +35,7 @@
       </tbody>
     </table>
   </div>
+  <app-pager [pager]="pager" />
 </div>
 
 <!-- Add / edit bundle dialog. -->
@@ -56,6 +57,7 @@
         <div class="field"><label>Rack</label><input class="input" name="rack" [(ngModel)]="form.rack" placeholder="A-01" /></div>
         <div class="field"><label>Status</label>
           <select class="input" name="status" [(ngModel)]="form.status"><option>Packed</option><option>Shipped</option><option>Sold</option></select></div>
+        <div class="field wide"><label for="sticker-text">Sticker label</label><input class="input" id="sticker-text" name="stickerText" maxlength="40" [(ngModel)]="form.stickerText" placeholder="Optional, printed in bold" autocomplete="off" /></div>
       </div>
       @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
       <div class="form-actions">
@@ -92,6 +94,7 @@
           <div><small>Size</small><strong>{{ data.product(b.code)?.size || '-' }}</strong></div>
           <div><small>Packing Date</small><strong>{{ b.packed }}</strong></div>
           <div><small>Rack</small><strong>{{ b.rack || '-' }}</strong></div>
+          @if (b.stickerText) { <div><small>Sticker label</small><strong>{{ b.stickerText }}</strong></div> }
         </div>
         <div class="label-codes">
           <figure><figcaption>Barcode</figcaption><span class="code-box"><app-barcode [value]="b.id" [height]="64" [moduleWidth]="1.4" /><span class="mono-id">{{ b.id }}</span></span></figure>
@@ -109,7 +112,10 @@
         </div>
         <div class="st-row"><span>DIE: {{ b.code || '-' }}</span><span>SIZE: {{ data.product(b.code)?.size || '-' }}</span></div>
         <div class="st-middle">
-          <div class="st-profile">Profile: {{ data.productName(b.code) }}</div>
+          <div class="st-profile">
+            Profile: <strong [class.long]="data.productName(b.code).length > 16">{{ data.productName(b.code) }}</strong>
+            @if (b.stickerText) { <div class="st-label">Label: <strong class="st-note" [class.long]="b.stickerText.length > 14">{{ b.stickerText }}</strong></div> }
+          </div>
           <app-qrcode class="st-qr" [value]="b.id" />
         </div>
         <app-barcode class="st-barcode" [value]="b.id" />

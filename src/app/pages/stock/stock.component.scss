@@ -5,4 +5,4 @@
 .meter { height: 6px; border-radius: 99px; background: var(--line); margin-top: 14px; overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #aab4be, #6c7885); }
 .meter i.glass { background: linear-gradient(90deg, #8fdcee, #1f93b2); }
-.scan { width: 220px; } .sel { width: 160px; }
+@media (min-width: 601px) { .toolbar .sel { width: 160px; } }

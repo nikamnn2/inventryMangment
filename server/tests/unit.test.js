@@ -100,28 +100,53 @@ describe('auth service', () => {
 });
 
 describe('auth middleware', () => {
-  const run = (cfg, headers = {}) => {
+  const account = { email: 'a@b.c', name: 'A', role: 'admin', status: 'active', passwordHash: 'hash-1' };
+  /** A stand-in database holding at most one account. */
+  const dbWith = user => ({ collection: () => ({ findOne: async () => user }) });
+  const run = async (cfg, headers = {}, db = dbWith(account)) => {
     const req = { headers };
     let out;
-    requireAuth(cfg)(req, {}, e => { out = e; });
+    await requireAuth({ config: cfg, db })(req, {}, e => { out = e; });
     return { req, err: out };
   };
+  const bearer = (user = account) => ({ authorization: `Bearer ${signToken(user, config)}` });
 
-  it('accepts a valid bearer token', () => {
-    const token = signToken({ email: 'a@b.c', name: 'A', role: 'admin' }, config);
-    const { req, err } = run(config, { authorization: `Bearer ${token}` });
+  it('accepts a valid bearer token', async () => {
+    const { req, err } = await run(config, bearer());
     assert.equal(err, undefined);
     assert.equal(req.user.sub, 'a@b.c');
   });
 
-  it('rejects missing, malformed and invalid tokens with 401', () => {
+  it('rejects missing, malformed and invalid tokens with 401', async () => {
     for (const headers of [{}, { authorization: 'Basic abc' }, { authorization: 'Bearer garbage' }]) {
-      assert.equal(run(config, headers).err.status, 401);
+      assert.equal((await run(config, headers)).err.status, 401);
     }
   });
 
-  it('treats everyone as admin when auth is disabled', () => {
-    const { req, err } = run({ ...config, authDisabled: true });
+  it('rejects an unsigned token', async () => {
+    const part = o => Buffer.from(JSON.stringify(o)).toString('base64url');
+    const forged = `${part({ alg: 'none', typ: 'JWT' })}.${part({ sub: 'a@b.c', role: 'admin' })}.`;
+    assert.equal((await run(config, { authorization: `Bearer ${forged}` })).err.status, 401);
+  });
+
+  it('rejects a good token once the account is removed, pending or has a new password', async () => {
+    for (const current of [null, { ...account, status: 'pending' }, { ...account, passwordHash: 'hash-2' }]) {
+      assert.equal((await run(config, bearer(), dbWith(current))).err.status, 401);
+    }
+  });
+
+  it('takes the role from the database, not from the token', async () => {
+    const { req } = await run(config, bearer(), dbWith({ ...account, role: 'accountant' }));
+    assert.equal(req.user.role, 'accountant');
+  });
+
+  it('reports a database failure as a server error, not as signed out', async () => {
+    const broken = { collection: () => ({ findOne: async () => { throw new Error('db down'); } }) };
+    assert.equal((await run(config, bearer(), broken)).err.message, 'db down');
+  });
+
+  it('treats everyone as admin when auth is disabled', async () => {
+    const { req, err } = await run({ ...config, authDisabled: true });
     assert.equal(err, undefined);
     assert.equal(req.user.role, 'admin');
     assert.equal(req.user.sub, config.adminEmail);

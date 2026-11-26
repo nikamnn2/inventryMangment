@@ -28,25 +28,49 @@
 .label-tools { display: flex; gap: 6px; }
 
 /*
- * Printed sticker, 63 x 63 mm. --u is 1% of the shorter side of the paper, so it still fits
- * one page if the printer driver is set to a slightly different size.
+ * Printed sticker, 63 x 63 mm. --u is 1% of its side: 0.63 mm, or less on smaller paper. So it is the
+ * same square on every device, including phones that ignore the page size and offer A4. The two
+ * fonts are web fonts (see index.html) so a phone, which has no Windows fonts, draws it the same.
  */
 .sticker { display: none; }
 @page sticker { size: 63mm 63mm; margin: 0; }
 @media print {
-  .sticker { --u: min(1vw, 1vh); page: sticker; display: flex; flex-direction: column; gap: calc(var(--u) * 1.5); height: 99vh; overflow: hidden; padding: calc(var(--u) * 3) calc(var(--u) * 2); color: #000; font-family: Consolas, 'Lucida Console', 'Courier New', monospace; line-height: 1.1; }
-  .st-title { text-align: center; white-space: nowrap; font-size: calc(var(--u) * 7); font-weight: 700; }
+  .sticker { --u: min(1vw, 1vh, 0.63mm); page: sticker; display: flex; flex-direction: column; gap: calc(var(--u) * 1.5); width: calc(var(--u) * 100); height: calc(var(--u) * 99); margin: 0 auto; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow: hidden; padding: calc(var(--u) * 3) calc(var(--u) * 2); color: #000; font-family: Inconsolata, Consolas, monospace; line-height: 1.1; }
+  .st-title { text-align: center; white-space: nowrap; font-size: calc(var(--u) * 7.6); font-weight: 700; }
   .st-table { display: grid; grid-template-columns: 0.9fr 1.1fr 1.1fr; margin: 0 calc(var(--u) * 2); border: solid #000; border-width: 0.4mm 0; }
   .st-table > div { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: var(--u) 0; border-left: 0.3mm solid #000; }
   .st-table > div:last-child { border-right: 0.3mm solid #000; }
   .st-table strong { font-size: calc(var(--u) * 7.4); white-space: nowrap; }
   .st-table > div:first-child strong { font-size: calc(var(--u) * 10); }
-  .st-table small { font-size: calc(var(--u) * 3.8); }
+  .st-table small { font-size: calc(var(--u) * 3.8); font-weight: 700; }
   .st-row { display: flex; justify-content: space-between; gap: calc(var(--u) * 2); padding: 0 calc(var(--u) * 2); font-size: calc(var(--u) * 4.6); }
   .st-middle { flex: 1; min-height: 0; display: flex; align-items: center; gap: calc(var(--u) * 2); padding-left: calc(var(--u) * 2); }
-  .st-profile { flex: 1; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: anywhere; font-size: calc(var(--u) * 6); font-weight: 700; }
+  .st-profile { flex: 1; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: anywhere; font-size: calc(var(--u) * 5.2); font-weight: 700; -webkit-text-stroke: 0.1mm #000; }
+  /* the name itself: bigger, and outlined as well as bold, because thermal printing thins the letters */
+  .st-profile strong { display: block; font-family: Arimo, Arial, Helvetica, sans-serif; font-size: calc(var(--u) * 7.4); font-weight: 700; -webkit-text-stroke: 0.15mm #000; }
+  .st-label { margin-top: calc(var(--u) * 1.6); }
+  .st-profile .st-note { display: inline; font-size: calc(var(--u) * 6.4); line-height: 1.08; }
+  /* long text prints smaller, so the name and the sticker label both fit */
+  .st-profile strong.long { font-size: calc(var(--u) * 4.8); -webkit-text-stroke-width: 0.1mm; line-height: 1.08; }
+  .st-profile .st-note.long { font-size: calc(var(--u) * 4.6); }
   .st-qr ::ng-deep svg { width: calc(var(--u) * 29) !important; height: calc(var(--u) * 29) !important; }
   /* full width: a 16-character ID needs it to keep the bars about 2 printer dots wide at 203 dpi */
   .st-barcode { width: 100%; }
   .st-barcode ::ng-deep svg { width: 100% !important; height: calc(var(--u) * 18) !important; }
+}
+
+/* phones: the label popup lists the details in one column, name on the left and value on the right */
+@media screen and (max-width: 600px) {
+  .label-modal { padding: 12px; }
+  .label { padding: 12px; gap: 10px; }
+  .label-title { font-size: 18px; white-space: nowrap; }
+  .label-head { padding: 12px; }
+  .label-head > strong { font-size: 16px; }
+  .label-facts { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .label-facts > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; }
+  .label-facts small { flex: none; margin: 0; }
+  .label-facts strong { min-width: 0; font-size: 16px; text-align: right; }
+}
+@media screen and (max-width: 600px) {
+  .label-codes { flex-direction: column; align-items: stretch; gap: 14px; }
 }

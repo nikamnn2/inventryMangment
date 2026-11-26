@@ -23,12 +23,12 @@
 <div class="card mt">
   <div class="card-head">
     <div><div class="card-title">Products and their bundles</div><div class="card-note">{{ rows().length }} bundles shown</div></div>
-    <div class="row">
+    <div class="row toolbar">
       <input class="input scan" type="search" name="scan" placeholder="Scan barcode or search…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
-      <select class="input sel" name="state" [ngModel]="state()" (ngModelChange)="state.set($event)" aria-label="Availability">
+      <select class="input sel half" name="state" [ngModel]="state()" (ngModelChange)="state.set($event)" aria-label="Availability">
         <option value="all">All</option><option value="available">Available</option><option value="sold">Sold</option>
       </select>
-      <select class="input sel" name="profile" [ngModel]="profile()" (ngModelChange)="profile.set($event)" aria-label="Product filter">
+      <select class="input sel half" name="profile" [ngModel]="profile()" (ngModelChange)="profile.set($event)" aria-label="Product filter">
         <option value="">All products</option>
         @for (p of data.products(); track p.code) { <option [value]="p.code">{{ p.name }}</option> }
       </select>
@@ -38,10 +38,10 @@
     <table class="tbl stack">
       <thead><tr><th>Product</th><th>Die No</th><th>Bundle ID</th><th>Rack</th><th class="right">Pieces</th><th class="right">Weight</th><th>Status</th></tr></thead>
       <tbody>
-        @for (b of rows(); track b.id) {
+        @for (b of pager.rows(); track b.id) {
           <tr>
             <td data-label="Product"><strong>{{ data.productName(b.code) }}</strong></td><td class="mono" data-label="Die No">{{ b.code }}</td><td class="mono" data-label="Bundle ID">{{ b.id }}</td><td data-label="Rack">{{ b.rack }}</td>
-            <td class="right" data-label="Pieces">{{ b.pieces }} @if (b.pieces > 0 && b.pieces < data.lowLimit()) { <span class="badge warn">Low</span> }</td>
+            <td class="right" data-label="Pieces"><span>{{ b.pieces }} @if (b.pieces > 0 && b.pieces < data.lowLimit()) { <span class="badge warn">Low</span> }</span></td>
             <td class="right" data-label="Weight">{{ b.weight | number: '1.1-2' }} kg</td>
             <td data-label="Status"><span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span></td>
           </tr>
@@ -49,4 +49,5 @@
       </tbody>
     </table>
   </div>
+  <app-pager [pager]="pager" />
 </div>

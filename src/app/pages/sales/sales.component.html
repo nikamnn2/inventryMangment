@@ -16,7 +16,7 @@
         <div class="field wide">
           <label>Scan bundle barcode</label>
           <div class="row" style="flex-wrap:nowrap">
-            <input class="input" name="scan" placeholder="Scan or type a bundle ID, then press Enter" [ngModel]="scan()" (ngModelChange)="scan.set($event)" (keydown.enter)="find($event)" />
+            <input class="input" type="search" name="scan" aria-label="Scan or type a bundle ID, then press Enter" placeholder="Scan bundle ID" [ngModel]="scan()" (ngModelChange)="scan.set($event)" (keydown.enter)="find($event)" />
             <button class="btn" type="button" (click)="find($event)">Find</button>
           </div>
         </div>
@@ -50,7 +50,7 @@
       <table class="tbl stack">
         <thead><tr><th>Bill</th><th>Date &amp; time</th><th>Customer</th><th>Product</th><th class="right">Pcs</th><th class="right">Weight</th><th class="right">Amount</th><th></th></tr></thead>
         <tbody>
-          @for (s of data.sales(); track s.id) {
+          @for (s of history.rows(); track s.id) {
             <tr>
               <td class="mono" data-label="Bill">{{ s.id }}</td><td data-label="Date & time">{{ s.date }}</td><td data-label="Customer">{{ s.customer }}</td><td data-label="Product"><strong>{{ s.product }}</strong></td>
               <td class="right" data-label="Pcs">{{ s.pcs }}</td><td class="right" data-label="Weight">{{ s.weight | number: '1.1-2' }} kg</td><td class="right" data-label="Amount">₹ {{ s.amount | number }}</td>
@@ -60,6 +60,7 @@
         </tbody>
       </table>
     </div>
+    <app-pager [pager]="history" />
   </div>
 }
 

@@ -1,3 +1,21 @@
+# Browser security headers (for static hosting; when the API serves the website it sends its own).
+# no-referrer keeps the one-time token in an activation link from being passed to other sites.
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+  Header always set Referrer-Policy "no-referrer"
+</IfModule>
+
+# Always use HTTPS.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
 # index.html must always be revalidated: it names the files of the latest deployment.
 <IfModule mod_headers.c>
   <Files "index.html">

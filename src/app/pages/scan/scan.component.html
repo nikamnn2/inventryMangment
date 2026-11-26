@@ -37,7 +37,7 @@
     </div>
 
     <form class="row manual" (submit)="submitManual($event)">
-      <input class="input" name="manual" placeholder="…or type / hardware-scan a bundle ID" autocomplete="off" [ngModel]="manual()" (ngModelChange)="manual.set($event)" />
+      <input class="input" type="search" name="manual" aria-label="Type or hardware-scan a bundle ID" placeholder="Type or scan bundle ID" autocomplete="off" [ngModel]="manual()" (ngModelChange)="manual.set($event)" />
       <button class="btn" type="submit">Find</button>
     </form>
 

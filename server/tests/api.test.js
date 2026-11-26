@@ -563,6 +563,105 @@ describe('members', () => {
   });
 });
 
+describe('security', () => {
+  /** A fresh app, so failed-attempt counts do not carry over between tests. */
+  const freshApp = (extra = {}) => request(createApp({ db: conn.db, config: { ...config, ...extra }, mailer }));
+  const signIn = (app, password, email = config.adminEmail) => app.post('/api/auth/login').send({ email, password });
+
+  it('blocks password guessing after five failures, even with the right password', async () => {
+    const app = freshApp();
+    for (let i = 0; i < 5; i++) assert.equal((await signIn(app, `wrong-${i}`)).status, 401);
+    const blocked = await signIn(app, config.adminPassword);
+    assert.equal(blocked.status, 429);
+    assert.ok(Number(blocked.headers['retry-after']) > 0);
+    assert.equal(blocked.body.token, undefined);
+  });
+
+  it('limits parallel guesses too', async () => {
+    const app = freshApp();
+    const results = await Promise.all(Array.from({ length: 12 }, (_, i) => signIn(app, `wrong-${i}`)));
+    assert.equal(results.filter(r => r.status === 401).length, 5);
+  });
+
+  it('limits one account across many addresses when behind a proxy', async () => {
+    const app = freshApp({ trustProxy: 1 });
+    const statuses = [];
+    for (let i = 0; i < 32; i++) statuses.push((await signIn(app, 'wrong').set('X-Forwarded-For', `10.0.0.${i}`)).status);
+    assert.equal(statuses.filter(s => s === 401).length, 30);
+  });
+
+  it('does not count successful sign-ins', async () => {
+    const app = freshApp();
+    for (let i = 0; i < 8; i++) assert.equal((await signIn(app, config.adminPassword)).status, 200);
+  });
+
+  it('limits guessing of activation links', async () => {
+    const app = freshApp();
+    for (let i = 0; i < 20; i++) assert.equal((await app.get(`/api/auth/activate/guess-${i}`)).status, 404);
+    assert.equal((await app.get('/api/auth/activate/one-more')).status, 429);
+  });
+
+  it('signs a member out at once when their role changes, password changes or they are removed', async () => {
+    const email = 'revoke@example.com';
+    await conn.db.collection('users').deleteMany({ email });
+    await post('/api/members', { name: 'R', email, role: 'manager' });
+    await post(`/api/members/${email}/activate`, { password: 'first-pass-123' });
+    const tokenFor = async password => ({ Authorization: `Bearer ${(await signIn(api, password, email)).body.token}` });
+
+    const session = await tokenFor('first-pass-123');
+    assert.equal((await api.get('/api/products').set(session)).status, 200);
+    await put(`/api/members/${email}`, { name: 'R', role: 'accountant' });
+    assert.equal((await api.get('/api/products').set(session)).status, 403); // new role applies immediately
+
+    await put(`/api/members/${email}`, { name: 'R', role: 'accountant', password: 'second-pass-123' });
+    assert.equal((await api.get('/api/sales').set(session)).status, 401);
+    assert.equal((await api.get('/api/auth/me').set(session)).status, 401);
+
+    const renewed = await tokenFor('second-pass-123');
+    await api.delete(`/api/members/${email}`).set(auth);
+    assert.equal((await api.get('/api/sales').set(renewed)).status, 401);
+  });
+
+  it('refuses well-known passwords', async () => {
+    const email = 'weak@example.com';
+    await conn.db.collection('users').deleteMany({ email });
+    await post('/api/members', { name: 'W', email, role: 'manager' });
+    const res = await post(`/api/members/${email}/activate`, { password: 'Aluminium' });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /too common/);
+  });
+
+  it('ignores database operators sent in place of the email or password', async () => {
+    const res = await freshApp().post('/api/auth/login').send({ email: { $ne: null }, password: { $ne: null } });
+    assert.equal(res.status, 400);
+  });
+
+  it('keeps health details private in production', async () => {
+    assert.deepEqual((await freshApp({ isProduction: true }).get('/api/health')).body, { status: 'ok' });
+  });
+
+  it('stops customer names from running as formulas in the sales export', async () => {
+    const bundle = (await get('/api/bundles')).body.find(b => b.pieces > 0);
+    await post('/api/sales', { bundleId: bundle.bundleId, quantity: 1, customer: '=HYPERLINK("http://evil.test")' });
+    const csv = (await get('/api/reports/sales.csv')).text;
+    assert.ok(csv.includes(`"'=HYPERLINK(""http://evil.test"")"`));
+  });
+});
+
+describe('bundle sticker label', () => {
+  const bundle = { dieNo: 'AL-1001', pieces: 5, weight: 12.5, packed: '2026-11-26', rack: 'A-1', status: 'Packed' };
+  const products = { findOne: async () => ({ dieNo: 'AL-1001' }) };
+
+  it('is trimmed, optional, limited to 40 characters, and kept when an edit does not send it', async () => {
+    const { parseBundle } = await import('../src/models/bundle.model.js');
+    const parse = extra => parseBundle({ ...bundle, ...extra }, products, { creating: false });
+    assert.equal((await parse({ stickerText: '  Phone 98604 70406 ' })).stickerText, 'Phone 98604 70406');
+    assert.equal((await parse({ stickerText: '' })).stickerText, '');
+    assert.ok(!('stickerText' in (await parse({}))));
+    await assert.rejects(parse({ stickerText: 'x'.repeat(41) }), /Sticker label/);
+  });
+});
+
 describe('mail service', () => {
   it('prints the message instead of failing when SMTP is not configured', async () => {
     const { createMailer } = await import('../src/services/mail.service.js');

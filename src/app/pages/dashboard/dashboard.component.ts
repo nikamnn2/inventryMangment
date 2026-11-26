@@ -1,9 +1,10 @@
 import { DecimalPipe, isPlatformBrowser } from '@angular/common';
 import { Component, DestroyRef, NgZone, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { DashboardSummary, DataService, Status } from '../../core/services/data.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Greeting for the time of day: morning from 05:00, afternoon from 12:00, evening from 17:00 until 05:00. */
 export function greetingFor(date: Date): string {
@@ -14,13 +15,23 @@ export function greetingFor(date: Date): string {
 /** Purpose: Dashboard page: key figures, stock per bundle, status split, today's activity and the 7-day sales trend. */
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, IconComponent, DecimalPipe],
+  imports: [RouterLink, IconComponent, DecimalPipe, PagerComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent {
   protected readonly data = inject(DataService);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+
+  /** Where bundle items lead; null (not clickable) for roles that cannot open the Bundles page. */
+  protected readonly bundlesLink = computed(() => (this.auth.can('bundles') ? '/bundles' : null));
+
+  /** Opens the Bundles page searched for one bundle. */
+  protected openBundle(id: string): void {
+    const link = this.bundlesLink();
+    if (link) void this.router.navigate([link], { queryParams: { q: id } });
+  }
 
   /** The current time, refreshed while the page is open so the greeting follows the clock. */
   private readonly now = signal(new Date());
@@ -30,6 +41,8 @@ export class DashboardComponent {
     const first = this.auth.user()?.name.trim().split(/\s+/)[0];
     return first ? `${greetingFor(this.now())}, ${first}` : greetingFor(this.now());
   });
+
+  protected readonly recent = createPager(() => this.data.bundles());
 
   /** The four headline tiles (products, bundles, total pieces, stock weight). */
   protected readonly kpis = computed(() => [

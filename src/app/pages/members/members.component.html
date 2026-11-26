@@ -9,13 +9,13 @@
 <div class="card">
   <div class="card-head">
     <div><div class="card-title">Team</div><div class="card-note">{{ filtered().length }} of {{ members.members().length }} members</div></div>
-    <input class="input" style="width:240px" type="search" placeholder="Search name, email, role…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+    <div class="row toolbar"><input class="input" type="search" placeholder="Search name, email…" [ngModel]="q()" (ngModelChange)="q.set($event)" /></div>
   </div>
   <div class="table-wrap">
     <table class="tbl stack">
       <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th>@if (isSuper()) { <th>Added by</th> }<th></th></tr></thead>
       <tbody>
-        @for (m of filtered(); track m.email) {
+        @for (m of pager.rows(); track m.email) {
           <tr>
             <td data-label="Name"><strong>{{ m.name }}</strong></td>
             <td data-label="Email">{{ m.email }}</td>
@@ -33,6 +33,7 @@
       </tbody>
     </table>
   </div>
+  <app-pager [pager]="pager" />
 </div>
 
 <!-- Add / edit member dialog. -->

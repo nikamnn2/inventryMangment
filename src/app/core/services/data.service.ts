@@ -29,6 +29,8 @@ export interface Bundle {
   packed: string;
   status: Status;
   rack: string;
+  /** Optional text printed in bold on the sticker. */
+  stickerText?: string;
 }
 
 /** One bill: which bundle, how many pieces, weight and amount. */
@@ -78,14 +80,14 @@ export const LOW_STOCK_LIMIT = 20;
 
 /* ---- API <-> UI shape adapters (the API speaks dieNo / bundleId / billNo) ---- */
 interface ApiProduct { dieNo: string; name: string; category: Category; size: string; finish: string; clValue?: string; }
-interface ApiBundle { bundleId: string; dieNo: string; pieces: number; weight: number; packed: string; status: Status; rack: string; }
+interface ApiBundle { bundleId: string; dieNo: string; pieces: number; weight: number; packed: string; status: Status; rack: string; stickerText?: string; }
 interface ApiSale { billNo: string; bundleId: string; product: string; pcs: number; weight: number; customer: string; amount: number; createdAt: string; }
 
 /** Converters between the API's field names (dieNo, bundleId, billNo) and the names used by the screens. */
 const toProduct = (p: ApiProduct): Product => ({ code: p.dieNo, name: p.name, category: p.category, size: p.size, finish: p.finish, clValue: p.clValue });
 const fromProduct = (p: Product): ApiProduct => ({ dieNo: p.code, name: p.name, category: p.category, size: p.size, finish: p.finish, clValue: p.clValue ?? '' });
-const toBundle = (b: ApiBundle): Bundle => ({ id: b.bundleId, code: b.dieNo, pieces: b.pieces, weight: b.weight, packed: b.packed, status: b.status, rack: b.rack });
-const fromBundle = (b: Partial<Bundle>) => ({ dieNo: b.code, pieces: b.pieces, weight: b.weight, packed: b.packed, rack: b.rack, status: b.status });
+const toBundle = (b: ApiBundle): Bundle => ({ id: b.bundleId, code: b.dieNo, pieces: b.pieces, weight: b.weight, packed: b.packed, status: b.status, rack: b.rack, ...(b.stickerText && { stickerText: b.stickerText }) });
+const fromBundle = (b: Partial<Bundle>) => ({ dieNo: b.code, pieces: b.pieces, weight: b.weight, packed: b.packed, rack: b.rack, status: b.status, stickerText: b.stickerText });
 const toSale = (s: ApiSale): Sale => {
   const ts = Date.parse(s.createdAt);
   const date = new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·');

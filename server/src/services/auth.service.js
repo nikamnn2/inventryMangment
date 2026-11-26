@@ -3,12 +3,18 @@ import { createHash, randomBytes } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
+/** Changes whenever the password changes, so a token issued for an older password stops working. */
+export const sessionStamp = user => sha256(user.passwordHash ?? '').slice(0, 16);
+
 /** Creates the login token the browser sends with every request. */
 export const signToken = (user, config) =>
-  jwt.sign({ sub: user.email, name: user.name, role: user.role }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+  jwt.sign({ sub: user.email, name: user.name, role: user.role, v: sessionStamp(user) }, config.jwtSecret, {
+    algorithm: 'HS256',
+    expiresIn: config.jwtExpiresIn,
+  });
 
 /** Validates a login token and returns its claims; throws when invalid or expired. */
-export const verifyToken = (token, config) => jwt.verify(token, config.jwtSecret);
+export const verifyToken = (token, config) => jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
 
 /** Passwords are stored only as bcrypt hashes, never as plain text. */
 export const hashPassword = pw => bcrypt.hash(pw, 10);

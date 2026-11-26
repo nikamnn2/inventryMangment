@@ -22,5 +22,7 @@ export async function parseBundle(body, products, { creating }) {
     packed,
     rack: str(body?.rack, 'Rack', { max: 20 }) || '—',
     status: oneOf(body?.status ?? 'Packed', 'Status', creating ? ['Packed', 'Shipped'] : BUNDLE_STATUSES),
+    // optional text printed on the sticker; an edit that does not send it leaves the saved text alone
+    ...(body?.stickerText !== undefined && { stickerText: str(body.stickerText, 'Sticker label', { max: 40 }) }),
   };
 }

@@ -1,29 +1,41 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Bundle, DataService, Status } from '../../core/services/data.service';
 import { QrcodeComponent } from '../../shared/components/qrcode/qrcode.component';
 import { BarcodeComponent } from '../../shared/components/barcode/barcode.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Fields of the add / edit dialog. */
-interface BundleForm { code: string; pieces: number; weight: number; packed: string; rack: string; status: Status; }
+interface BundleForm { code: string; pieces: number; weight: number; packed: string; rack: string; status: Status; stickerText: string; }
 
 /** Purpose: Bundles page: list / search bundles, add or edit one, and open its printable label (barcode + QR code). */
 @Component({
   selector: 'app-bundles',
-  imports: [FormsModule, IconComponent, BarcodeComponent, QrcodeComponent, DecimalPipe],
+  imports: [FormsModule, IconComponent, BarcodeComponent, QrcodeComponent, DecimalPipe, PagerComponent],
   templateUrl: './bundles.component.html',
   styleUrl: './bundles.component.scss',
 })
 export class BundlesComponent {
   protected readonly data = inject(DataService);
-  protected readonly q = signal('');
+  /** Search text; a link such as /bundles?q=<id> (from the dashboard) fills it in. */
+  protected readonly q = signal(inject(ActivatedRoute, { optional: true })?.snapshot.queryParamMap.get('q') ?? '');
   protected readonly dialog = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected readonly error = signal('');
   protected readonly label = signal<Bundle | null>(null);
   protected form: BundleForm = this.blank();
+
+  constructor() {
+    // the sticker is hidden until printing, so its fonts must be fetched ahead of the print window
+    for (const font of ['400 16px Inconsolata', '700 16px Inconsolata', '700 16px Arimo']) {
+      void globalThis.document?.fonts?.load(font).catch(() => undefined);
+    }
+  }
+
+  protected readonly pager = createPager(() => this.list(), () => this.q());
 
   /** Bundles matching the search box (ID, die no, product name or rack). */
   protected list(): Bundle[] {
@@ -39,12 +51,12 @@ export class BundlesComponent {
   /** Default values for a new bundle. */
   private blank(): BundleForm {
     // there may be no products yet (new database, or the list is still loading)
-    return { code: this.data.products()[0]?.code ?? '', pieces: 10, weight: 50, packed: new Date().toISOString().slice(0, 10), rack: '', status: 'Packed' };
+    return { code: this.data.products()[0]?.code ?? '', pieces: 10, weight: 50, packed: new Date().toISOString().slice(0, 10), rack: '', status: 'Packed', stickerText: '' };
   }
 
   /** Opens the dialog, empty for a new bundle or filled for editing. */
   protected open(b?: Bundle): void {
-    this.form = b ? { code: b.code, pieces: b.pieces, weight: b.weight, packed: b.packed, rack: b.rack, status: b.status } : this.blank();
+    this.form = b ? { code: b.code, pieces: b.pieces, weight: b.weight, packed: b.packed, rack: b.rack, status: b.status, stickerText: b.stickerText ?? '' } : this.blank();
     this.editingId.set(b?.id ?? null);
     this.error.set('');
     this.dialog.set(true);

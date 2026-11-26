@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Category, DataService, Product } from '../../core/services/data.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Empty product form. */
 const blank = (): Product => ({ code: '', name: '', category: 'Aluminium' as Category, size: '', finish: '', clValue: '' });
@@ -9,7 +10,7 @@ const blank = (): Product => ({ code: '', name: '', category: 'Aluminium' as Cat
 /** Purpose: Products page: the catalogue of profiles and glass types (Die No, name, size, finish), with search, category filter, add and edit. */
 @Component({
   selector: 'app-products',
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, PagerComponent],
   templateUrl: './products.component.html',
   styleUrl: './products.component.scss',
 })
@@ -31,6 +32,8 @@ export class ProductsComponent {
       (this.cat() === 'All' || p.category === this.cat()) &&
       (!q || `${p.code} ${p.name} ${p.finish} ${p.size}`.toLowerCase().includes(q)));
   });
+
+  protected readonly pager = createPager(() => this.filtered(), () => `${this.cat()}|${this.q()}`);
 
   /** Opens the add / edit dialog. */
   protected open(p?: Product): void {

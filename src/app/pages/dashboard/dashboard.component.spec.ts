@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { DataService } from '../../core/services/data.service';
 import { baseProviders, fillData } from '../../testing/fixtures';
@@ -17,6 +18,41 @@ describe('DashboardComponent', () => {
     TestBed.configureTestingModule({ imports: [DashboardComponent], providers: baseProviders() });
     data = TestBed.inject(DataService);
     fillData(data);
+  });
+
+  it('links bundle items to the Bundles page, searched for the clicked bundle', async () => {
+    spyOn(data, 'getDashboard').and.resolveTo(summary);
+    TestBed.inject(AuthService).user.set({ email: 'a@x.y', name: 'Asha', role: 'admin', modules: ['dashboard', 'bundles'] });
+    spyOn(TestBed.inject(AuthService), 'can').and.returnValue(true);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(DashboardComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const href = (selector: string) => el.querySelector(selector)?.getAttribute('href');
+    const first = data.bundles()[0].id;
+
+    expect([...el.querySelectorAll('a.kpi')].map(a => a.getAttribute('href'))).toEqual([null, '/bundles', null, null]);
+    expect(href('a.donut-row')).toBe('/bundles');
+    expect(href('a.bar-col')).toBe('/bundles?q=' + first);
+    expect(href('a.alert')).toContain('/bundles?q=');
+    expect(href('tbody td.mono a')).toBe('/bundles?q=' + first);
+    el.querySelector<HTMLTableRowElement>('tbody tr')!.click();
+    expect(navigate).toHaveBeenCalledWith(['/bundles'], { queryParams: { q: first } });
+  });
+
+  it('does not link bundle items for a role without the Bundles page', async () => {
+    spyOn(data, 'getDashboard').and.resolveTo(summary);
+    spyOn(TestBed.inject(AuthService), 'can').and.returnValue(false);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate');
+    const fixture = TestBed.createComponent(DashboardComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    expect(el.querySelectorAll('a.kpi[href], a.bar-col[href], a.donut-row[href], a.alert[href], td.mono a[href]').length).toBe(0);
+    el.querySelector<HTMLTableRowElement>('tbody tr')!.click();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('picks the greeting from the time of day', () => {

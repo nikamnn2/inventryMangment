@@ -20,6 +20,8 @@ export function createApp(ctx) {
 
   /** Hide the framework name and add standard security headers. */
   app.disable('x-powered-by');
+  /** Behind a hosting proxy this makes req.ip the visitor's address (used by the sign-in limits). */
+  app.set('trust proxy', config.trustProxy ?? 0);
   app.use(helmet());
   /** Only the front-end origin(s) listed in CORS_ORIGIN may call the API from a browser. */
   app.use(cors({ origin: config.corsOrigin.split(','), exposedHeaders: ['Content-Disposition'] }));
@@ -28,6 +30,7 @@ export function createApp(ctx) {
   /** Health check for dev tools / monitoring: pings MongoDB and reports connection-pool usage. */
   app.get('/api/health', async (_req, res) => {
     await db.command({ ping: 1 });
+    if (config.isProduction) return res.json({ status: 'ok' }); // internal details stay private
     res.json({ status: 'ok', db: config.dbName, pool: ctx.poolStats?.() ?? null, uptime: process.uptime() });
   });
 

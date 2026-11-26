@@ -25,10 +25,11 @@
   <div class="table-wrap"><table class="tbl stack">
     <thead><tr><th>Bill</th><th>Date &amp; time</th><th>Customer</th><th>Product</th><th class="right">Pcs</th><th class="right">Weight</th><th class="right">Amount</th></tr></thead>
     <tbody>
-      @for (s of report().sales; track s.id) {
+      @for (s of salesPager.rows(); track s.id) {
         <tr><td class="mono" data-label="Bill">{{ s.id }}</td><td data-label="Date & time">{{ s.date }}</td><td data-label="Customer">{{ s.customer }}</td><td data-label="Product">{{ s.product }}</td><td class="right" data-label="Pcs">{{ s.pcs }}</td><td class="right" data-label="Weight">{{ s.weight | number: '1.1-2' }} kg</td><td class="right" data-label="Amount">₹ {{ s.amount | number }}</td></tr>
       } @empty { <tr><td colspan="7" class="muted">No sales in this period.</td></tr> }
     </tbody></table></div>
+  <app-pager [pager]="salesPager" />
 </div>
 
 <div class="card mt">
@@ -39,8 +40,9 @@
   <div class="table-wrap"><table class="tbl stack">
     <thead><tr><th>Bundle ID</th><th>Product</th><th>Packed</th><th class="right">Pieces</th><th class="right">Weight</th><th>Status</th></tr></thead>
     <tbody>
-      @for (b of report().packing; track b.id) {
+      @for (b of packingPager.rows(); track b.id) {
         <tr><td class="mono" data-label="Bundle ID">{{ b.id }}</td><td data-label="Product">{{ b.productName }}</td><td data-label="Packed">{{ b.packed }}</td><td class="right" data-label="Pieces">{{ b.pieces }}</td><td class="right" data-label="Weight">{{ b.weight | number: '1.1-2' }} kg</td><td data-label="Status"><span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span></td></tr>
       } @empty { <tr><td colspan="6" class="muted">No bundles packed in this period.</td></tr> }
     </tbody></table></div>
+  <app-pager [pager]="packingPager" />
 </div>

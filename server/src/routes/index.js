@@ -15,7 +15,7 @@ import memberRoutes from './members.routes.js';
 export function protectedRoutes(ctx) {
   const api = Router();
   /** Every route below needs a valid login token... */
-  api.use(requireAuth(ctx.config));
+  api.use(requireAuth(ctx));
   /** ...and each section also checks the role may open it (requireModule), e.g. accountants cannot edit products. */
   api.use('/products', requireModule('products'), productRoutes(ctx));
   api.use('/bundles', requireModule('bundles'), bundleRoutes(ctx));

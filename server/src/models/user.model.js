@@ -48,12 +48,16 @@ export const publicUser = (u, config) => ({
 /** Simple e-mail format check. */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Password rules: 8-200 characters (or empty when the field is optional). */
+/** Passwords that are tried first by anyone guessing ("aluminium" was this app's demo password). */
+const COMMON_PASSWORDS = ['aluminium', 'password', 'password1', 'password123', '12345678', '123456789', '1234567890', 'qwerty123', 'admin123', 'admin@123', 'changeme123'];
+
+/** Password rules: 8-200 characters and not a well-known password (or empty when the field is optional). */
 export const parsePassword = (value, { required }) => {
   const v = typeof value === 'string' ? value : '';
   if (!v && !required) return '';
   if (v.length < 8) throw new HttpError(400, 'Password must be at least 8 characters.');
   if (v.length > 200) throw new HttpError(400, 'Password must be at most 200 characters.');
+  if (COMMON_PASSWORDS.includes(v.toLowerCase())) throw new HttpError(400, 'This password is too common. Choose a different one.');
   return v;
 };
 

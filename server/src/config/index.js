@@ -25,6 +25,8 @@ export const config = {
   // demo products, bundles, parties and sales are loaded in development only
   seedDemoData: !isProduction,
   port: int(process.env.PORT, 3000),
+  // number of proxies in front of the API (hosting adds one); 0 when visitors connect directly
+  trustProxy: int(process.env.TRUST_PROXY, isProduction ? 1 : 0),
   mongoUri: process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017',
   dbName: process.env.MONGODB_DB ?? 'invenza',
   maxPoolSize: int(process.env.MONGO_MAX_POOL_SIZE, 20),

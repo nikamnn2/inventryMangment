@@ -4,6 +4,7 @@ import { ROLE_LABELS } from '../../core/config/modules';
 import { AuthService } from '../../core/services/auth.service';
 import { Member, MemberForm, MembersService, RoleName } from '../../core/services/members.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Empty member form (new members default to the accountant role). */
 const blank = (): MemberForm => ({ name: '', email: '', role: 'accountant', password: '' });
@@ -11,7 +12,7 @@ const blank = (): MemberForm => ({ name: '', email: '', role: 'accountant', pass
 /** Purpose: Members page (admin only): invite team members by e-mail, change roles / passwords, resend activation links, activate by hand and remove people. */
 @Component({
   selector: 'app-members',
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, PagerComponent],
   templateUrl: './members.component.html',
   styleUrl: './members.component.scss',
 })
@@ -41,6 +42,8 @@ export class MembersComponent {
     const q = this.q().trim().toLowerCase();
     return this.members.members().filter(m => !q || `${m.name} ${m.email} ${m.role}`.toLowerCase().includes(q));
   });
+
+  protected readonly pager = createPager(() => this.filtered(), () => this.q());
 
   constructor() {
     void this.members.load().then(err => this.loadError.set(err ?? ''));
