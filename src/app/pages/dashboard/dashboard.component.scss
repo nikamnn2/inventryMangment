@@ -82,3 +82,14 @@ td.mono a[href]:hover { color: var(--accent); text-decoration: underline; }
   .hero-stats div { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .hero-stats b { order: 1; font-size: 20px; }
 }
+
+/* phones: each summary card is one row: icon, then title and note, with the number on the right */
+@media screen and (max-width: 600px) {
+  .kpi { flex-direction: row; align-items: center; gap: 14px; padding: 16px; }
+  .kpi > div { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'label value' 'note value'; align-items: center; column-gap: 12px; }
+  .kpi-label { grid-area: label; align-self: end; font-size: 15.5px; color: var(--ink); font-weight: 600; }
+  .kpi-note { grid-area: note; align-self: start; }
+  .kpi-value { grid-area: value; margin: 0; text-align: right; white-space: nowrap; font-size: 30px; }
+  .kpi-value small { font-size: 14px; }
+  .kpi-icon { width: 46px; height: 46px; border-radius: 14px; }
+}
