@@ -95,7 +95,12 @@ What you have to do:
 - In MongoDB Atlas, allow only the server's IP address, give the app a database user limited to its own database,
   and turn on backups.
 - Keep the Android signing key (`~/.invenza-android`) private and backed up.
-- Run `npm audit` now and then. Angular 19 has advisories that are fixed only in newer major versions.
+- Run `npm audit` now and then, both in the project root and in `server/`.
+
+The website uses Angular 21, which needs Node `20.19+`, `22.12+` or `24+` wherever it is built. `overrides` in
+`package.json` forces patched versions of `glob`, `minimatch` and `uuid` that some build tools would otherwise
+leave old; remove an override once `npm audit` stays clean without it. Keep `@angular/build` under `dependencies`:
+the one-app deployment installs without development packages and needs it to build the website.
 
 ## Turning automatic deployment off
 

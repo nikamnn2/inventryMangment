@@ -54,10 +54,10 @@
           <span class="card-note">Enter manually · scale capture is planned</span></div>
         <div class="field"><label>Avg. weight (kg/pc)</label><input class="input" readonly name="avg" [value]="avg()" /></div>
         <div class="field"><label>Date packed</label><input class="input" type="date" name="packed" [(ngModel)]="form.packed" /></div>
-        <div class="field"><label>Rack</label><input class="input" name="rack" [(ngModel)]="form.rack" placeholder="A-01" /></div>
+        <div class="field"><label>Rack</label><input class="input" name="rack" maxlength="20" [(ngModel)]="form.rack" placeholder="A-01" />
+          <span class="card-note">Printed as “Label” on the sticker</span></div>
         <div class="field"><label>Status</label>
           <select class="input" name="status" [(ngModel)]="form.status"><option>Packed</option><option>Shipped</option><option>Sold</option></select></div>
-        <div class="field wide"><label for="sticker-text">Sticker label</label><input class="input" id="sticker-text" name="stickerText" maxlength="40" [(ngModel)]="form.stickerText" placeholder="Optional, printed in bold" autocomplete="off" /></div>
       </div>
       @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
       <div class="form-actions">
@@ -94,7 +94,6 @@
           <div><small>Size</small><strong>{{ data.product(b.code)?.size || '-' }}</strong></div>
           <div><small>Packing Date</small><strong>{{ b.packed }}</strong></div>
           <div><small>Rack</small><strong>{{ b.rack || '-' }}</strong></div>
-          @if (b.stickerText) { <div><small>Sticker label</small><strong>{{ b.stickerText }}</strong></div> }
         </div>
         <div class="label-codes">
           <figure><figcaption>Barcode</figcaption><span class="code-box"><app-barcode [value]="b.id" [height]="64" [moduleWidth]="1.4" /><span class="mono-id">{{ b.id }}</span></span></figure>
@@ -114,7 +113,8 @@
         <div class="st-middle">
           <div class="st-profile">
             Profile: <strong [class.long]="data.productName(b.code).length > 16">{{ data.productName(b.code) }}</strong>
-            @if (b.stickerText) { <div class="st-label">Label: <strong class="st-note" [class.long]="b.stickerText.length > 14">{{ b.stickerText }}</strong></div> }
+            <!-- the rack value is what is printed as "Label"; "—" is what an empty rack is saved as -->
+            @if (b.rack && b.rack !== '—' && b.rack !== '-') { <div class="st-label">Label: <strong class="st-note" [class.long]="b.rack.length > 14">{{ b.rack }}</strong></div> }
           </div>
           <app-qrcode class="st-qr" [value]="b.id" />
         </div>

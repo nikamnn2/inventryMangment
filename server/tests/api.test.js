@@ -648,20 +648,6 @@ describe('security', () => {
   });
 });
 
-describe('bundle sticker label', () => {
-  const bundle = { dieNo: 'AL-1001', pieces: 5, weight: 12.5, packed: '2026-11-26', rack: 'A-1', status: 'Packed' };
-  const products = { findOne: async () => ({ dieNo: 'AL-1001' }) };
-
-  it('is trimmed, optional, limited to 40 characters, and kept when an edit does not send it', async () => {
-    const { parseBundle } = await import('../src/models/bundle.model.js');
-    const parse = extra => parseBundle({ ...bundle, ...extra }, products, { creating: false });
-    assert.equal((await parse({ stickerText: '  Phone 98604 70406 ' })).stickerText, 'Phone 98604 70406');
-    assert.equal((await parse({ stickerText: '' })).stickerText, '');
-    assert.ok(!('stickerText' in (await parse({}))));
-    await assert.rejects(parse({ stickerText: 'x'.repeat(41) }), /Sticker label/);
-  });
-});
-
 describe('mail service', () => {
   it('prints the message instead of failing when SMTP is not configured', async () => {
     const { createMailer } = await import('../src/services/mail.service.js');

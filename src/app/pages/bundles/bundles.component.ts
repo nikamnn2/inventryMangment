@@ -9,7 +9,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Fields of the add / edit dialog. */
-interface BundleForm { code: string; pieces: number; weight: number; packed: string; rack: string; status: Status; stickerText: string; }
+interface BundleForm { code: string; pieces: number; weight: number; packed: string; rack: string; status: Status; }
 
 /** Purpose: Bundles page: list / search bundles, add or edit one, and open its printable label (barcode + QR code). */
 @Component({
@@ -51,12 +51,12 @@ export class BundlesComponent {
   /** Default values for a new bundle. */
   private blank(): BundleForm {
     // there may be no products yet (new database, or the list is still loading)
-    return { code: this.data.products()[0]?.code ?? '', pieces: 10, weight: 50, packed: new Date().toISOString().slice(0, 10), rack: '', status: 'Packed', stickerText: '' };
+    return { code: this.data.products()[0]?.code ?? '', pieces: 10, weight: 50, packed: new Date().toISOString().slice(0, 10), rack: '', status: 'Packed' };
   }
 
   /** Opens the dialog, empty for a new bundle or filled for editing. */
   protected open(b?: Bundle): void {
-    this.form = b ? { code: b.code, pieces: b.pieces, weight: b.weight, packed: b.packed, rack: b.rack, status: b.status, stickerText: b.stickerText ?? '' } : this.blank();
+    this.form = b ? { code: b.code, pieces: b.pieces, weight: b.weight, packed: b.packed, rack: b.rack, status: b.status } : this.blank();
     this.editingId.set(b?.id ?? null);
     this.error.set('');
     this.dialog.set(true);
