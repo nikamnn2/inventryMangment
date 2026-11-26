@@ -18,7 +18,7 @@
         @for (m of pager.rows(); track m.email) {
           <tr>
             <td data-label="Name"><strong>{{ m.name }}</strong></td>
-            <td data-label="Email">{{ m.email }}</td>
+            <td data-label="Email"><span>{{ m.email.split('@')[0] }}<wbr />&#64;{{ m.email.split('@')[1] }}</span></td>
             <td data-label="Role"><span class="badge" [class]="roleClass(m.role)">{{ m.superAdmin ? 'Super admin' : labels[m.role] }}</span></td>
             <td data-label="Status"><span class="badge" [class]="m.status === 'pending' ? 'warn' : 'ok'">{{ m.status === 'pending' ? 'Pending activation' : 'Active' }}</span></td>
             @if (isSuper()) { <td data-label="Added by">{{ m.addedBy || '—' }}</td> }

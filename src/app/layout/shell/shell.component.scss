@@ -32,7 +32,9 @@ nav a.active app-icon { color: #fff; }
 
 .side-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 12px 10px 4px; border-top: 1px solid rgba(255,255,255,.08); }
 .who { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.who strong { display: block; color: #fff; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a long name wraps inside the menu (min-width lets this box be narrower than the name) */
+.who > div { min-width: 0; }
+.who strong { display: block; color: #fff; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
 .who small { color: #7f98a8; font-size: 13.5px; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #0f1c27; background: linear-gradient(145deg, #e9eef2, #9fb0bd); flex: none; }
 
