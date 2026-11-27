@@ -192,6 +192,55 @@ describe('SalesComponent', () => {
     expect(c.listError()).toBe('This invoice has already been decided.');
   });
 
+  const PDF = new File(['%PDF-'], 'SALE-000150.pdf', { type: 'application/pdf' });
+
+  it('downloads the PDF on a computer, for an issued invoice only, and shows why it failed', async () => {
+    await setup();
+    Object.defineProperty(c, 'mobile', { value: false });
+    const pdf = spyOn(api, 'pdf').and.resolveTo(PDF);
+    const save = spyOn(api, 'saveFile');
+    const share = spyOn(api, 'shareFile');
+    c.openInvoice(INVOICE);
+    expect(text()).toContain('Download PDF');
+    expect(text()).not.toContain('Share PDF');
+    await c.sendPdf(INVOICE);
+    expect(save).toHaveBeenCalledWith(PDF);
+    expect(share).not.toHaveBeenCalled();
+    pdf.and.resolveTo('Only an approved invoice can be downloaded.');
+    c.openInvoice(INVOICE);
+    await c.sendPdf(INVOICE);
+    expect(text()).toContain('Only an approved invoice can be downloaded.');
+    c.openInvoice({ ...INVOICE, status: 'pending' });
+    expect(text()).not.toContain('Download PDF');
+  });
+
+  it('shares the PDF on a phone, fetched when the invoice is opened', async () => {
+    await setup();
+    Object.defineProperty(c, 'mobile', { value: true });
+    const pdf = spyOn(api, 'pdf').and.resolveTo(PDF);
+    const share = spyOn(api, 'shareFile').and.resolveTo('shared');
+    const save = spyOn(api, 'saveFile');
+    c.openInvoice(INVOICE);
+    expect(pdf).toHaveBeenCalledTimes(1);
+    expect(text()).toContain('Share PDF');
+    expect(text()).not.toContain('Download PDF');
+    await c.sendPdf(INVOICE);
+    expect(share).toHaveBeenCalledWith(PDF);
+    expect(pdf).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalled();
+    expect(c.pdfNote()).toBe('');
+    share.and.resolveTo('saved');
+    await c.sendPdf(INVOICE);
+    expect(text()).toContain('was saved to your downloads');
+  });
+
+  it('shows the rack of each added bundle', async () => {
+    await setup();
+    spyOn(api, 'lookup').and.resolveTo({ ...LINE('103719'), rack: 'Champagne' });
+    await c.add('103719');
+    expect(text()).toContain('Champagne');
+  });
+
   it('still shows earlier single-bundle bills', async () => {
     await setup();
     c.tab.set('invoices');

@@ -31,4 +31,9 @@ export function groupByProduct(items: InvoiceLine[]): InvoiceGroup[] {
 export class InvoiceSheetComponent {
   readonly invoice = input.required<Invoice>();
   protected readonly groups = computed(() => groupByProduct(this.invoice().items));
+
+  /** ", Rack: Black", or nothing for a bundle without a rack (saved as "—"). */
+  protected rack(value?: string): string {
+    return value && !['—', '-'].includes(value) ? `, Rack: ${value}` : '';
+  }
 }

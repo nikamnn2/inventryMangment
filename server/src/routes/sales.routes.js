@@ -12,6 +12,7 @@ export default function saleRoutes(ctx) {
   r.get('/lookup/:code', wrap(invoices.lookup));
   r.get('/customers', wrap(invoices.customers));
   r.get('/invoices', wrap(invoices.list));
+  r.get('/invoices/:saleNo/pdf', wrap(invoices.pdf));
   r.get('/invoices/:saleNo', wrap(invoices.get));
   r.post('/invoices', wrap(invoices.create));
   r.post('/invoices/:saleNo/approve', wrap(invoices.approve));

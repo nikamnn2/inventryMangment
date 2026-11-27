@@ -917,6 +917,64 @@ describe('sales invoices', () => {
     assert.equal((await api.get("/api/sales/customers").set(manager)).status, 403);
   });
 
+  describe('rack and PDF download', () => {
+    const asBuffer = (res, done) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => done(null, Buffer.concat(chunks)));
+    };
+    const download = (saleNo, headers = auth) => api.get(`/api/sales/invoices/${saleNo}/pdf?tz=Asia%2FKolkata`).set(headers).buffer(true).parse(asBuffer);
+    /** The words of an uncompressed PDF (pdfkit writes them as hex strings). */
+    const words = file => file.toString('latin1').split('\n').filter(l => l.endsWith(' TJ'))
+      .map(l => [...l.matchAll(/<([0-9a-f]+)>/g)].map(m => Buffer.from(m[1], 'hex').toString('latin1')).join(''));
+
+    it('keeps each bundle\'s rack on the invoice', async () => {
+      await conn.db.collection('bundles').updateOne({ bundleId: IDS.b }, { $set: { rack: 'Gold' } });
+      assert.equal((await lookup(IDS.b)).body.rack, 'Gold');
+      const inv = (await create(auth)).body;
+      assert.deepEqual(inv.items.map(i => i.rack), ['A', 'Gold']);
+    });
+
+    it('downloads an issued invoice as a PDF', async () => {
+      const { saleNo } = (await create(auth)).body;
+      const res = await download(saleNo);
+      assert.equal(res.status, 200);
+      assert.equal(res.headers['content-type'], 'application/pdf');
+      assert.equal(res.headers['content-disposition'], `attachment; filename="${saleNo}.pdf"`);
+      assert.equal(res.body.subarray(0, 5).toString(), '%PDF-');
+      assert.equal((await download(saleNo, seller)).status, 200);
+      assert.equal((await download(saleNo, await bearer('manager@invenza.com'))).status, 403);
+      assert.equal((await download('SALE-999999')).status, 404);
+    });
+
+    it('draws the same details as the printed invoice, without prices, over several pages', async () => {
+      const { renderInvoicePdf, formatDate } = await import('../src/services/invoice-pdf.service.js');
+      const items = Array.from({ length: 90 }, (_, i) => ({ bundleId: String(103700 + i), dieNo: i < 45 ? '' : 'D2', product: i < 45 ? '3TT' : 'Handel', rack: i === 1 ? '—' : 'Black', pcs: 10, weight: 22.5, amount: 99999 }));
+      const file = await renderInvoicePdf({
+        saleNo: 'SALE-000150', company: 'Siddheshwar Aluminium & Glass', customer: { name: 'ganesh landge', contact: '9860470406', email: '' },
+        items, totals: { bundles: 90, pcs: 900, weight: 2025 }, issuedAt: '2026-10-14T10:19:00Z',
+      }, { timeZone: 'Asia/Kolkata', compress: false });
+      const text = words(file);
+      for (const line of ['SALES INVOICE', 'Siddheshwar Aluminium & Glass', 'Sale Number: SALE-000150', 'Date: Oct 14, 2026, 03:49 PM', 'Name: ganesh landge', '3TT (Die: -)', '45 bundles',
+        'Bundle 103700: 22.5 Kg, 10 PCS, Rack: Black', 'Bundle 103701: 22.5 Kg, 10 PCS', 'Subtotal: 1,012.50 Kg, 450 PCS', 'Handel (Die: D2)', 'GRAND TOTAL:', '2,025.00 Kg', 'Total PCS: 900', 'Total Bundles: 90', 'Thank you for your business!']) {
+        assert.ok(text.includes(line), `missing: ${line}`);
+      }
+      assert.ok(text.some(t => /Page 1 of 3|Page 1 of 2/.test(t)), 'page numbers');
+      assert.equal(text.filter(t => t.startsWith('Bundle 1')).length, 90, 'every bundle once');
+      assert.ok(!text.join(' ').includes('99999'));
+      assert.equal(formatDate('2026-10-14T10:19:00Z', 'Not/AZone'), 'Oct 14, 2026, 03:49 PM');
+    });
+
+    it('refuses to download a waiting invoice, or one it cannot draw correctly', async () => {
+      const waiting = (await create(seller, [IDS.a])).body;
+      assert.equal((await api.get(`/api/sales/invoices/${waiting.saleNo}/pdf`).set(seller)).status, 409);
+      const marathi = (await create(auth, [IDS.b], { name: 'गणेश', contact: '9860470406' })).body;
+      const res = await api.get(`/api/sales/invoices/${marathi.saleNo}/pdf`).set(auth);
+      assert.equal(res.status, 422);
+      assert.match(res.body.error, /Save as PDF/);
+    });
+  });
+
   it('lets only one of two sales people take the same bundle', async () => {
     const results = await Promise.all([create(seller, [IDS.a, IDS.b]), create(seller, [IDS.b, IDS.a])]);
     const winners = results.filter(r => r.status === 201);

@@ -29,7 +29,7 @@
 
     <div class="table-wrap">
       <table class="tbl stack">
-        <thead><tr><th>Bundle No</th><th>Product</th><th>Die No</th><th>Size</th><th class="right">Pieces</th><th class="right">Weight</th><th></th></tr></thead>
+        <thead><tr><th>Bundle No</th><th>Product</th><th>Die No</th><th>Size</th><th>Rack</th><th class="right">Pieces</th><th class="right">Weight</th><th></th></tr></thead>
         <tbody>
           @for (i of itemPager.rows(); track i.bundleId) {
             <tr>
@@ -37,11 +37,12 @@
               <td data-label="Product"><strong>{{ i.product }}</strong></td>
               <td data-label="Die No">{{ i.dieNo || '-' }}</td>
               <td data-label="Size">{{ i.size || '-' }}</td>
+              <td data-label="Rack">{{ i.rack || '-' }}</td>
               <td class="right" data-label="Pieces">{{ i.pcs }}</td>
               <td class="right" data-label="Weight">{{ i.weight | number: '1.2-2' }} kg</td>
               <td class="right"><button class="btn sm danger-text" type="button" (click)="remove(i.bundleId)" [attr.aria-label]="'Remove bundle ' + i.bundleId">Remove</button></td>
             </tr>
-          } @empty { <tr><td colspan="7" class="muted">No bundles yet. Add the first one above.</td></tr> }
+          } @empty { <tr><td colspan="8" class="muted">No bundles yet. Add the first one above.</td></tr> }
         </tbody>
       </table>
     </div>
@@ -98,7 +99,7 @@
               <td class="right" data-label="PCS">{{ inv.totals.pcs }}</td>
               <td class="right" data-label="Weight">{{ inv.totals.weight | number: '1.2-2' }} kg</td>
               <td data-label="Status"><span class="badge" [class]="inv.status === 'issued' ? 'ok' : inv.status === 'rejected' ? 'danger' : 'warn'">{{ statusLabel(inv.status) }}</span></td>
-              <td class="right"><button class="btn sm" type="button" (click)="viewing.set(inv)">{{ inv.status === 'pending' && isAdmin() ? 'Review' : 'View' }}</button></td>
+              <td class="right"><button class="btn sm" type="button" (click)="openInvoice(inv)">{{ inv.status === 'pending' && isAdmin() ? 'Review' : 'View' }}</button></td>
             </tr>
           } @empty { <tr><td colspan="9" class="muted">No invoices yet.</td></tr> }
         </tbody>
@@ -134,13 +135,18 @@
   <div class="modal-scrim" (click)="viewing.set(null)">
     <div class="modal invoice-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="'Invoice ' + inv.saleNo">
       <app-invoice-sheet [invoice]="inv" />
+      @if (pdfError()) { <div class="notice err no-print" role="alert" style="margin-top:14px">{{ pdfError() }}</div> }
+      @if (pdfNote()) { <div class="notice ok no-print" role="status" style="margin-top:14px">{{ pdfNote() }}</div> }
       <div class="form-actions no-print">
         <button class="btn" type="button" (click)="viewing.set(null)">Close</button>
         @if (inv.status === 'pending' && isAdmin()) {
           <button class="btn danger-text" type="button" [disabled]="deciding()" (click)="decide(inv, 'reject')">Reject</button>
           <button class="btn primary" type="button" [disabled]="deciding()" (click)="decide(inv, 'approve')">Approve &amp; create invoice</button>
         }
-        @if (inv.status === 'issued') { <button class="btn primary" type="button" (click)="print()"><app-icon name="print" [size]="16" /> Print invoice (A4)</button> }
+        @if (inv.status === 'issued') {
+          <button class="btn pdf-button" type="button" [disabled]="downloading()" (click)="sendPdf(inv)"><app-icon [name]="mobile ? 'share' : 'download'" [size]="16" /> {{ downloading() ? 'Preparing…' : mobile ? 'Share PDF' : 'Download PDF' }}</button>
+          <button class="btn primary" type="button" (click)="print()"><app-icon name="print" [size]="16" /> Print invoice (A4)</button>
+        }
       </div>
     </div>
   </div>

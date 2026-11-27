@@ -2,7 +2,7 @@
 <!-- Purpose: Android app that shows the live Invenza website. Built by build-apk.sh. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.sahyadriinfotech.shrisiddheshwar"
-    android:versionCode="4"
+    android:versionCode="5"
     android:versionName="1.0">
 
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36" />

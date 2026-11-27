@@ -6,6 +6,7 @@
 import { COLLECTIONS as C } from '../database/collections.js';
 import { SETTINGS_ID } from '../models/settings.model.js';
 import { invoiceTotals, parseInvoiceRequest } from '../models/invoice.model.js';
+import { canDraw, renderInvoicePdf } from '../services/invoice-pdf.service.js';
 import { HttpError, escapeRegex } from '../utils/index.js';
 
 const NO_ID = { projection: { _id: 0 } };
@@ -49,7 +50,7 @@ export function invoicesController({ db }) {
       const product = byDie.get(b.dieNo);
       const category = product?.category ?? 'Aluminium';
       return {
-        bundleId: b.bundleId, dieNo: b.dieNo, product: product?.name ?? b.dieNo, size: product?.size ?? '', category,
+        bundleId: b.bundleId, dieNo: b.dieNo, product: product?.name ?? b.dieNo, size: product?.size ?? '', rack: b.rack ?? '', category,
         pcs: b.pieces, weight: b.weight, amount: Math.round(b.weight * (settings?.rates?.[category] ?? 0)),
       };
     });
@@ -113,6 +114,19 @@ export function invoicesController({ db }) {
       const invoice = await invoices.findOne({ saleNo: req.params.saleNo }, NO_ID);
       if (!invoice) throw new HttpError(404, 'Invoice not found.');
       res.json(invoice);
+    },
+
+    /** Downloads an issued invoice as an A4 PDF. `tz` is the reader's time zone, for the date. */
+    async pdf(req, res) {
+      const invoice = await invoices.findOne({ saleNo: req.params.saleNo }, NO_ID);
+      if (!invoice) throw new HttpError(404, 'Invoice not found.');
+      if (invoice.status !== 'issued') throw new HttpError(409, 'Only an approved invoice can be downloaded.');
+      if (!canDraw(invoice)) {
+        throw new HttpError(422, 'The PDF download supports English letters only. Use "Print invoice" and choose "Save as PDF" for this one.');
+      }
+      const file = await renderInvoicePdf(invoice, { timeZone: String(req.query.tz ?? '').slice(0, 60) });
+      res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${invoice.saleNo}.pdf"`, 'Cache-Control': 'no-store' });
+      res.send(file);
     },
 
     /** Creates an invoice. An admin's is issued at once; anyone else's waits for an admin. */

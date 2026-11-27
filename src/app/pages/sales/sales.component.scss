@@ -29,3 +29,5 @@
   .invoice-modal { padding: 14px; }
   .invoice-modal .form-actions { flex-wrap: wrap; }
 }
+
+@media screen and (max-width: 600px) { .invoice-modal .form-actions .btn { flex: 1 1 100%; justify-content: center; } }

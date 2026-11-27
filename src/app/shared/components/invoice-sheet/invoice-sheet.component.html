@@ -28,7 +28,7 @@
         </div>
         <ul>
           @for (i of g.items; track i.bundleId) {
-            <li>Bundle {{ i.bundleId }}: {{ i.weight | number: '1.0-2' }} Kg, {{ i.pcs }} PCS</li>
+            <li>Bundle {{ i.bundleId }}: {{ i.weight | number: '1.0-2' }} Kg, {{ i.pcs }} PCS{{ rack(i.rack) }}</li>
           }
         </ul>
         <div class="subtotal">Subtotal: {{ g.weight | number: '1.2-2' }} Kg, {{ g.pcs }} PCS</div>

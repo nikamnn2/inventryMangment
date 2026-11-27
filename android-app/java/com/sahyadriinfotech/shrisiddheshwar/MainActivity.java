@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.KeyguardManager;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -389,7 +390,7 @@ public class MainActivity extends Activity {
         cameraRequest = null;
     }
 
-    /** What the page can ask the app to do. Both calls are ignored unless our own site is showing. */
+    /** What the page can ask the app to do. Every call is ignored unless our own site is showing. */
     private class Bridge {
         @JavascriptInterface
         public void print(boolean sticker) {
@@ -411,20 +412,53 @@ public class MainActivity extends Activity {
         public void save(String name, String type, String base64) {
             runOnUiThread(() -> {
                 if (!isShowingOurSite()) return;
-                String file = name.replaceAll("[^A-Za-z0-9._-]", "_");
-                ContentValues values = new ContentValues();
-                values.put(MediaStore.Downloads.DISPLAY_NAME, file);
-                values.put(MediaStore.Downloads.MIME_TYPE, type.split(";")[0]);
+                String file = safeName(name);
+                toast(writeToDownloads(file, type, base64) != null ? "Saved to Downloads: " + file : "Could not save the file.");
+            });
+        }
+
+        /** Opens Android's share sheet for a file the page made, such as an invoice PDF. */
+        @JavascriptInterface
+        public void share(String name, String type, String base64) {
+            runOnUiThread(() -> {
+                if (!isShowingOurSite()) return;
+                // the copy in Downloads is what gets shared: other apps can be allowed to read it
+                Uri file = writeToDownloads(safeName(name), type, base64);
+                if (file == null) {
+                    toast("Could not prepare the file for sharing.");
+                    return;
+                }
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType(type.split(";")[0]);
+                send.putExtra(Intent.EXTRA_STREAM, file);
+                send.setClipData(ClipData.newRawUri(name, file));
+                send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 try {
-                    Uri target = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                    try (OutputStream out = getContentResolver().openOutputStream(target)) {
-                        out.write(Base64.decode(base64, Base64.DEFAULT));
-                    }
-                    toast("Saved to Downloads: " + file);
-                } catch (Exception e) {
-                    toast("Could not save the file.");
+                    startActivity(Intent.createChooser(send, "Share " + safeName(name)));
+                } catch (ActivityNotFoundException e) {
+                    toast("No app can share this file. It is saved in Downloads.");
                 }
             });
+        }
+    }
+
+    private static String safeName(String name) {
+        return name.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    /** Writes a file into the phone's Downloads folder; null when it cannot. */
+    private Uri writeToDownloads(String file, String type, String base64) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Downloads.DISPLAY_NAME, file);
+        values.put(MediaStore.Downloads.MIME_TYPE, type.split(";")[0]);
+        try {
+            Uri target = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            try (OutputStream out = getContentResolver().openOutputStream(target)) {
+                out.write(Base64.decode(base64, Base64.DEFAULT));
+            }
+            return target;
+        } catch (Exception e) {
+            return null;
         }
     }
 

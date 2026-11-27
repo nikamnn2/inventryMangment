@@ -79,6 +79,11 @@ export class SalesComponent {
   protected readonly listError = signal('');
   protected readonly viewing = signal<Invoice | null>(null);
   protected readonly deciding = signal(false);
+  protected readonly downloading = signal(false);
+  protected readonly pdfError = signal('');
+  protected readonly pdfNote = signal('');
+  /** On a phone the open invoice's PDF is fetched ahead, so sharing starts right on the tap. */
+  private prepared: { saleNo: string; file: Promise<File | string> } | null = null;
   protected readonly waiting = computed(() => this.invoices().filter(i => i.status === 'pending').length);
   protected readonly invoicePager = createPager(() => this.invoices());
   /** Bills made before invoices existed (one bundle each). */
@@ -221,7 +226,7 @@ export class SalesComponent {
     this.notice.set(result.status === 'issued'
       ? `Invoice ${result.saleNo} created.`
       : `${result.saleNo} was sent to an admin. The invoice is created when they approve it.`);
-    if (result.status === 'issued') this.viewing.set(result);
+    if (result.status === 'issued') this.openInvoice(result);
     await Promise.all([this.loadInvoices(), this.loadCustomers(), result.status === 'issued' ? this.refreshStock() : undefined]);
   }
 
@@ -235,7 +240,8 @@ export class SalesComponent {
       this.listError.set(result);
       this.viewing.set(null);
     } else {
-      this.viewing.set(decision === 'approve' ? result : null);
+      if (decision === 'approve') this.openInvoice(result);
+      else this.viewing.set(null);
       this.notice.set(decision === 'approve' ? `Invoice ${result.saleNo} created.` : `${result.saleNo} was rejected. Its bundles are available again.`);
     }
     await Promise.all([this.loadInvoices().then(() => typeof result === 'string' && this.listError.set(result)), this.refreshStock()]);
@@ -248,6 +254,42 @@ export class SalesComponent {
 
   protected statusLabel(status: Invoice['status']): string {
     return status === 'issued' ? 'Issued' : status === 'rejected' ? 'Rejected' : 'Waiting for approval';
+  }
+
+  protected openInvoice(invoice: Invoice): void {
+    this.pdfError.set('');
+    this.pdfNote.set('');
+    this.prepared = null;
+    if (this.mobile && invoice.status === 'issued') this.prepare(invoice.saleNo);
+    this.viewing.set(invoice);
+  }
+
+  private prepare(saleNo: string): Promise<File | string> {
+    if (this.prepared?.saleNo !== saleNo) this.prepared = { saleNo, file: this.api.pdf(saleNo) };
+    return this.prepared.file;
+  }
+
+  /** Phones share the PDF; computers download it. */
+  protected async sendPdf(invoice: Invoice): Promise<void> {
+    if (this.downloading()) return;
+    this.downloading.set(true);
+    this.pdfError.set('');
+    this.pdfNote.set('');
+    try {
+      const file = await this.prepare(invoice.saleNo);
+      if (typeof file === 'string') {
+        this.prepared = null; // try again on the next tap
+        this.pdfError.set(file);
+      } else if (!this.mobile) {
+        this.api.saveFile(file);
+      } else if ((await this.api.shareFile(file)) === 'saved') {
+        this.pdfNote.set(`Sharing is not available here, so ${file.name} was saved to your downloads.`);
+      }
+    } catch {
+      this.pdfError.set('Could not share the PDF. Please try again.');
+    } finally {
+      this.downloading.set(false);
+    }
   }
 
   /** Prints the open invoice (A4) or old bill. */
