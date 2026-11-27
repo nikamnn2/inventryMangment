@@ -50,10 +50,21 @@ export function invoicesController({ db }) {
       const product = byDie.get(b.dieNo);
       const category = product?.category ?? 'Aluminium';
       return {
-        bundleId: b.bundleId, dieNo: b.dieNo, product: product?.name ?? b.dieNo, size: product?.size ?? '', rack: b.rack ?? '', category,
+        bundleId: b.bundleId, dieNo: b.dieNo, product: product?.name ?? b.dieNo, size: product?.size ?? '', rack: b.rack ?? '', length: product?.clValue ?? '', category,
         pcs: b.pieces, weight: b.weight, amount: Math.round(b.weight * (settings?.rates?.[category] ?? 0)),
       };
     });
+  }
+
+  /** Invoices made before the length was kept take it from the product as it is now. */
+  async function withLength(list) {
+    const missing = list.flatMap(i => i.items.filter(line => line.length === undefined));
+    if (missing.length) {
+      const products = await db.collection(C.products).find({ dieNo: { $in: missing.map(line => line.dieNo) } }).toArray();
+      const byDie = new Map(products.map(p => [p.dieNo, p.clValue ?? '']));
+      for (const line of missing) line.length = byDie.get(line.dieNo) ?? '';
+    }
+    return list;
   }
 
   const release = saleNo => bundles.updateMany({ reservedBy: saleNo }, { $unset: { reservedBy: '' } });
@@ -99,6 +110,22 @@ export function invoicesController({ db }) {
       res.json(line);
     },
 
+    /**
+     * Suggestions while typing on a new sale: bundles that can be sold, newest first. Every word typed
+     * must be found in the bundle number, die number, rack, product name or size.
+     */
+    async search(req, res) {
+      const words = String(req.query.q ?? '').trim().slice(0, 80).split(/\s+/).filter(Boolean).slice(0, 6);
+      const and = [];
+      for (const word of words) {
+        const rx = new RegExp(escapeRegex(word), 'i');
+        const products = await db.collection(C.products).find({ $or: [{ name: rx }, { size: rx }] }, { projection: { dieNo: 1 } }).limit(500).toArray();
+        and.push({ $or: [{ bundleId: rx }, { dieNo: rx }, { rack: rx }, { dieNo: { $in: products.map(p => p.dieNo) } }] });
+      }
+      const found = await bundles.find(and.length ? { ...FREE, $and: and } : FREE).sort({ createdAt: -1 }).limit(30).toArray();
+      res.json((await describe(found)).map(({ amount, category, ...line }) => line));
+    },
+
     /** Saved customers for the name suggestions on a new invoice. */
     async customers(_req, res) {
       const list = await db.collection(C.customers).find({}, { projection: { _id: 0, name: 1, contact: 1, email: 1, city: 1 } }).sort({ name: 1 }).limit(2000).toArray();
@@ -107,13 +134,13 @@ export function invoicesController({ db }) {
 
     /** Invoices, newest first (max 500). */
     async list(_req, res) {
-      res.json(await invoices.find({}, NO_ID).sort({ createdAt: -1 }).limit(500).toArray());
+      res.json(await withLength(await invoices.find({}, NO_ID).sort({ createdAt: -1 }).limit(500).toArray()));
     },
 
     async get(req, res) {
       const invoice = await invoices.findOne({ saleNo: req.params.saleNo }, NO_ID);
       if (!invoice) throw new HttpError(404, 'Invoice not found.');
-      res.json(invoice);
+      res.json((await withLength([invoice]))[0]);
     },
 
     /** Downloads an issued invoice as an A4 PDF. `tz` is the reader's time zone, for the date. */
@@ -121,6 +148,7 @@ export function invoicesController({ db }) {
       const invoice = await invoices.findOne({ saleNo: req.params.saleNo }, NO_ID);
       if (!invoice) throw new HttpError(404, 'Invoice not found.');
       if (invoice.status !== 'issued') throw new HttpError(409, 'Only an approved invoice can be downloaded.');
+      await withLength([invoice]);
       if (!canDraw(invoice)) {
         throw new HttpError(422, 'The PDF download supports English letters only. Use "Print invoice" and choose "Save as PDF" for this one.');
       }
@@ -177,7 +205,7 @@ export function invoicesController({ db }) {
       if (!isAdmin(req)) throw new HttpError(403, 'Only an admin can approve invoices.');
       const invoice = await claim(req.params.saleNo, 'issuing');
       try {
-        res.json(await issue(invoice, req.user.sub));
+        res.json(await issue((await withLength([invoice]))[0], req.user.sub));
       } catch (err) {
         await sales.deleteMany({ invoiceNo: invoice.saleNo });
         await invoices.updateOne({ saleNo: invoice.saleNo }, { $set: { status: 'pending' } });

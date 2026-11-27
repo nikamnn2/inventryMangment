@@ -4,7 +4,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 /** One bundle on an invoice. */
-export interface InvoiceLine { bundleId: string; dieNo: string; product: string; size: string; rack?: string; pcs: number; weight: number; }
+export interface InvoiceLine { bundleId: string; dieNo: string; product: string; size: string; rack?: string; length?: string; pcs: number; weight: number; }
 
 export interface InvoiceCustomer { name: string; contact: string; email: string; }
 
@@ -51,6 +51,11 @@ export class InvoiceService {
 
   lookup(code: string): Promise<InvoiceLine | string> {
     return this.call(() => firstValueFrom(this.http.get<InvoiceLine>(`/api/sales/lookup/${encodeURIComponent(code)}`)));
+  }
+
+  /** Bundles that can be sold and match what is typed, for suggestions. */
+  search(text: string): Promise<InvoiceLine[] | string> {
+    return this.call(() => firstValueFrom(this.http.get<InvoiceLine[]>(`/api/sales/search?q=${encodeURIComponent(text)}`)));
   }
 
   list(): Promise<Invoice[] | string> {

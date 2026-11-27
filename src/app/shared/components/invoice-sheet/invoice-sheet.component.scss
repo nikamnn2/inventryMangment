@@ -1,31 +1,116 @@
-/* Purpose: the invoice on screen, and printed on A4 (the same from a desktop or a phone). */
+/* Purpose: the invoice preview on screen, and the table printed on A4 (the same from a desktop or a phone). */
 :host { display: block; }
 .invoice { background: #fff; color: #111; font-family: Arimo, Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.4; text-align: left; }
-h1 { margin: 6px 0 12px; text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .3px; }
-.company { margin: 0 0 18px; text-align: center; font-size: 13.5px; }
-.draft { margin: 0 0 12px; padding: 8px; text-align: center; font-weight: 700; color: #8a5300; border: 1px dashed #b87722; }
-hr { border: 0; border-top: 1px solid #555; margin: 12px 0; }
-.meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; }
-.customer { margin-top: 14px; display: grid; gap: 4px; overflow-wrap: anywhere; }
-h2 { margin: 0 0 10px; font-size: 16px; }
-.group { margin-bottom: 14px; }
-.group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.group-head > strong:first-child { overflow-wrap: anywhere; }
-.count { flex: none; font-size: 13.5px; }
-ul { list-style: none; margin: 8px 0 0; padding: 0 0 0 22px; font-size: 14px; }
-.subtotal { padding-left: 16px; font-weight: 700; font-size: 14px; }
-.grand { display: flex; justify-content: space-between; gap: 16px; font-size: 16px; font-weight: 700; line-height: 1.7; }
-.grand .right { text-align: right; }
-.thanks { margin: 40px 0 4px; text-align: center; font-size: 13px; }
 
-@page invoice { size: A4; margin: 14mm 16mm; }
+/* ---- the preview on screen ---- */
+.screen-view { display: grid; gap: 14px; font-family: Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif; color: #0f1b2a; }
+.pv-banner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 20px 22px; border-radius: 18px; color: #fff; background: radial-gradient(360px 180px at 100% 0%, rgba(111, 211, 234, .45), transparent 65%), linear-gradient(125deg, #0b1f2f 0%, #0f3b54 55%, #176b8a 120%); }
+.pv-brand h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1.5px; }
+.pv-brand p { margin: 4px 0 0; font-size: 14px; color: #c4dde9; }
+.pv-ref { display: grid; justify-items: end; gap: 3px; font-size: 13px; color: #c4dde9; }
+.pv-ref strong { font-size: 18px; color: #fff; letter-spacing: .3px; }
+.pv-state { padding: 2px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; background: #d9f5e6; color: #17633f; }
+.pv-state.waiting { background: #fdedd0; color: #8a5300; }
+.pv-state.rejected { background: #fbe0dd; color: #9b2f26; }
+.pv-draft { margin: 0; padding: 9px; text-align: center; font-weight: 700; font-size: 13.5px; color: #8a5300; border: 1px dashed #b87722; border-radius: 12px; background: #fff8ea; }
+.pv-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #6b7c90; }
+
+.pv-top { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr); gap: 12px; }
+.pv-customer { display: grid; align-content: center; gap: 2px; padding: 14px 16px; border: 1px solid #e3e9f2; border-radius: 14px; font-size: 14px; overflow-wrap: anywhere; }
+.pv-customer strong { font-size: 17px; }
+.pv-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pv-stats div { display: grid; align-content: center; gap: 4px; padding: 12px; border-radius: 14px; background: #f2f6fb; }
+.pv-stats strong { font-size: 21px; font-variant-numeric: tabular-nums; }
+.pv-stats small { font-size: 13px; font-weight: 600; color: #6b7c90; }
+
+.pv-group { border: 1px solid #e3e9f2; border-radius: 14px; overflow: hidden; }
+.pv-group-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; background: #f7f9fd; }
+.pv-group-head strong { display: block; font-size: 15.5px; overflow-wrap: anywhere; }
+.pv-group-head small { color: #6b7c90; font-size: 12.5px; }
+.pv-count { flex: none; padding: 3px 11px; border-radius: 99px; background: #e2f4f8; color: #0a6a82; font-size: 12.5px; font-weight: 700; }
+.pv-columns, .screen-view li { display: grid; grid-template-columns: 1.3fr 1fr .8fr 1fr; align-items: center; gap: 10px; padding: 0 16px; }
+.pv-columns { padding-block: 7px; border-block: 1px solid #e9eef5; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: #6b7c90; }
+.pv-columns span:nth-child(n+3) { text-align: right; }
+.screen-view ul { list-style: none; margin: 0; padding: 0; }
+.screen-view li { padding-block: 9px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.screen-view li + li { border-top: 1px solid #eef2f7; }
+.screen-view li:nth-child(even) { background: #fbfcfe; }
+.pv-id { font-weight: 700; overflow-wrap: anywhere; }
+.pv-rack { color: #8797a9; min-width: 0; overflow-wrap: anywhere; }
+.pv-rack em { display: inline-block; padding: 1px 10px; border-radius: 99px; background: #eef1f6; color: #2c3a4d; font-style: normal; font-size: 12.5px; font-weight: 600; }
+.pv-pcs, .pv-weight { text-align: right; font-weight: 600; }
+.screen-view li small { font-weight: 500; font-size: 11.5px; color: #6b7c90; }
+.pv-subtotal { display: grid; grid-template-columns: 2.3fr .8fr 1fr; gap: 10px; padding: 10px 16px; border-top: 1px solid #dbe4ee; background: #f2f6fb; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pv-subtotal span:nth-child(2), .pv-subtotal strong { text-align: right; }
+
+.pv-total { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 16px 20px; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #0e8ba6 0%, #2f6fe4 100%); }
+.pv-total span { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.pv-total small { font-size: 13px; opacity: .85; }
+.pv-total strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.pv-thanks { margin: 2px 0 0; text-align: center; font-size: 13px; color: #6b7c90; }
+
+/* phones: one column; each bundle is a two-line list entry */
+@media screen and (max-width: 600px) {
+  .pv-banner { padding: 16px; }
+  .pv-brand h1 { font-size: 18px; }
+  .pv-ref { justify-items: start; }
+  .pv-top, .pv-stats { grid-template-columns: minmax(0, 1fr); }
+  .pv-stats div { grid-template-columns: 1fr auto; align-items: center; padding: 10px 14px; }
+  .pv-stats strong { font-size: 18px; }
+  .pv-columns { display: none; }
+  .screen-view li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 5px; padding: 10px 14px; }
+  .pv-weight { grid-column: 2; grid-row: 1; }
+  .pv-rack { grid-column: 1; grid-row: 2; }
+  .pv-pcs { grid-column: 2; grid-row: 2; }
+  .pv-subtotal { grid-template-columns: 1fr auto auto; padding: 10px 14px; }
+}
+
+/* ---- the table, shown only on paper ---- */
+.print-view { display: none; }
+/* On paper: pure black and white, without grey shading; bold text and heavier lines show the structure.
+ * (The downloaded and shared PDF, drawn by the server, is the colour version.) */
+.print-view { color: #000; padding: 0 1px; }
+.print-view small { display: block; font-size: .72em; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }
+.doc-banner { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 4px 2px 10px; border-bottom: 2.5px solid #000; }
+.doc-banner span { display: block; font-size: .9em; color: #000; }
+.doc-title { display: block; font-size: 1.5em; letter-spacing: 1.5px; }
+.doc-ref { text-align: right; }
+.doc-ref strong { display: block; font-size: 1.2em; }
+.doc-banner .date { font-size: .95em; font-weight: 700; }
+.doc-info { display: grid; grid-template-columns: minmax(0, 2.2fr) repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.doc-customer, .doc-stat { padding: 8px 11px; border-radius: 9px; }
+.doc-customer { border: 1px solid #000; }
+.party { display: block; font-size: 1.18em; text-transform: uppercase; overflow-wrap: anywhere; }
+.contact { display: block; font-size: .85em; color: #000; overflow-wrap: anywhere; }
+.doc-stat { display: flex; flex-direction: column; justify-content: center; border: 1px solid #000; }
+.doc-stat strong { font-size: 1.25em; }
+
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { border: 1px solid #000; padding: 3px 7px; overflow-wrap: anywhere; vertical-align: middle; }
+thead th { font-weight: 700; text-align: center; border-width: 2px 1px; text-transform: uppercase; }
+.sr { width: 10%; text-align: center; }
+.code { width: 27%; text-align: left; }
+.num { width: 17%; text-align: right; }
+.le { width: 12%; text-align: center; }
+.with-rack .code { width: 20%; }
+.with-rack .rack { width: 17%; text-align: left; }
+.with-rack .num { width: 15%; }
+.with-rack .le { width: 8%; }
+.with-rack .sr { width: 10%; }
+thead .sr, thead .code, thead .rack, thead .num, thead .le, .with-rack thead .rack, .with-rack thead .code { text-align: center; }
+.item .code { font-weight: 700; }
+.product th { text-align: left; font-weight: 700; font-size: 1.1em; text-transform: uppercase; border-top-width: 2px; }
+.sum-row td, .total-row td { font-weight: 700; }
+.total-row td { font-size: 1.15em; border-width: 2.5px 1px; }
+.doc-thanks { margin: 22px 0 0; text-align: center; font-size: .85em; color: #000; }
+
+@page invoice { size: A4; margin: 12mm 10mm; }
 @media print {
-  .invoice { page: invoice; padding: 0; font-size: 11pt; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  h1 { font-size: 17pt; }
-  .company, .count, ul, .subtotal, .thanks { font-size: 10pt; }
-  h2, .grand { font-size: 12pt; }
-  /* keep lines and totals whole when a long invoice runs onto the next page */
-  li, .subtotal, .grand, .meta, .customer { break-inside: avoid; }
-  .group-head { break-after: avoid; }
-  .thanks { margin-top: 28mm; }
+  .screen-view { display: none; }
+  .print-view { display: block; }
+  .invoice { page: invoice; padding: 0; font-size: 10.5pt; line-height: 1.3; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* the column headings repeat on each page; rows are never split, and a product name keeps its first row */
+  thead { display: table-header-group; }
+  tr, .doc-banner, .doc-info { break-inside: avoid; }
+  tr.product { break-after: avoid; }
 }

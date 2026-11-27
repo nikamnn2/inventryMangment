@@ -947,22 +947,38 @@ describe('sales invoices', () => {
       assert.equal((await download('SALE-999999')).status, 404);
     });
 
-    it('draws the same details as the printed invoice, without prices, over several pages', async () => {
-      const { renderInvoicePdf, formatDate } = await import('../src/services/invoice-pdf.service.js');
-      const items = Array.from({ length: 90 }, (_, i) => ({ bundleId: String(103700 + i), dieNo: i < 45 ? '' : 'D2', product: i < 45 ? '3TT' : 'Handel', rack: i === 1 ? '—' : 'Black', pcs: 10, weight: 22.5, amount: 99999 }));
-      const file = await renderInvoicePdf({
-        saleNo: 'SALE-000150', company: 'Siddheshwar Aluminium & Glass', customer: { name: 'ganesh landge', contact: '9860470406', email: '' },
-        items, totals: { bundles: 90, pcs: 900, weight: 2025 }, issuedAt: '2026-10-14T10:19:00Z',
-      }, { timeZone: 'Asia/Kolkata', compress: false });
-      const text = words(file);
-      for (const line of ['SALES INVOICE', 'Siddheshwar Aluminium & Glass', 'Sale Number: SALE-000150', 'Date: Oct 14, 2026, 03:49 PM', 'Name: ganesh landge', '3TT (Die: -)', '45 bundles',
-        'Bundle 103700: 22.5 Kg, 10 PCS, Rack: Black', 'Bundle 103701: 22.5 Kg, 10 PCS', 'Subtotal: 1,012.50 Kg, 450 PCS', 'Handel (Die: D2)', 'GRAND TOTAL:', '2,025.00 Kg', 'Total PCS: 900', 'Total Bundles: 90', 'Thank you for your business!']) {
-        assert.ok(text.includes(line), `missing: ${line}`);
+    it('draws the same table as the printed invoice, without prices, over several pages', async () => {
+      const { renderInvoicePdf, formatDate, lengthOf } = await import('../src/services/invoice-pdf.service.js');
+      const items = Array.from({ length: 90 }, (_, i) => ({ bundleId: String(103700 + i), dieNo: i < 45 ? '' : 'D2', product: i < 45 ? '1.5+1 PLAIN PIPE' : '18+60 HANDLE', length: '15/FT', rack: '', pcs: 40, weight: 44.9, amount: 99999 }));
+      const invoice = {
+        saleNo: 'SALE-000150', company: 'Siddheshwar Aluminium & Glass', customer: { name: 'Dull Nagar', contact: '9860470406', email: '' },
+        items, totals: { bundles: 90, pcs: 3600, weight: 4041 }, issuedAt: '2026-11-23T10:19:00Z',
+      };
+      const text = words(await renderInvoicePdf(invoice, { timeZone: 'Asia/Kolkata', compress: false }));
+      for (const part of ['SALES INVOICE', 'Siddheshwar Aluminium & Glass', 'SALE-000150', 'DULL NAGAR', 'Date  23/11/2026', 'BILLED TO', 'TOTAL WEIGHT', '4041.00 Kg', 'Thank you for your business!', 'Sr No', 'Barcode', 'WT', 'PC', 'LE', 'WT/PC', '1.5+1 PLAIN PIPE', '18+60 HANDLE',
+        '103700', '103789', '44.90', '40.00', '15', '1.12', '2020.50', '1800.00', '4041.00', '3600.00', 'GRAND TOTAL \xB7 90 bundles']) {
+        assert.ok(text.includes(part), `missing: ${part}`);
       }
-      assert.ok(text.some(t => /Page 1 of 3|Page 1 of 2/.test(t)), 'page numbers');
-      assert.equal(text.filter(t => t.startsWith('Bundle 1')).length, 90, 'every bundle once');
+      assert.ok(!text.includes('Rack'), 'no rack column without racks');
+      assert.equal(text.filter(t => /^1037\d\d$/.test(t)).length, 90, 'every bundle once');
+      assert.ok(text.filter(t => t === 'Barcode').length > 1, 'headings repeat on each page');
+      assert.ok(text.some(t => /Page 2 of \d/.test(t)), 'page numbers');
       assert.ok(!text.join(' ').includes('99999'));
-      assert.equal(formatDate('2026-10-14T10:19:00Z', 'Not/AZone'), 'Oct 14, 2026, 03:49 PM');
+
+      const racked = words(await renderInvoicePdf({ ...invoice, items: [{ ...items[0], rack: 'Black' }], totals: { bundles: 1, pcs: 40, weight: 44.9 } }, { compress: false }));
+      for (const part of ['Rack', 'Black', 'GRAND TOTAL \xB7 1 bundle']) assert.ok(racked.includes(part), `missing: ${part}`);
+      assert.equal(formatDate('2026-11-23T20:00:00Z', 'Asia/Kolkata'), '24/11/2026');
+      assert.equal(formatDate('2026-11-23T10:00:00Z', 'Not/AZone'), '23/11/2026');
+      assert.deepEqual([lengthOf('15/FT'), lengthOf(''), lengthOf(undefined)], ['15', '-', '-']);
+    });
+
+    it('keeps the product length on each line, also for invoices made before it was stored', async () => {
+      await conn.db.collection('products').updateOne({ dieNo: 'AL-1001' }, { $set: { clValue: '15/FT' } });
+      const made = (await create(auth, [IDS.a])).body;
+      assert.equal(made.items[0].length, '15/FT');
+      await conn.db.collection('invoices').updateOne({ saleNo: made.saleNo }, { $unset: { 'items.0.length': '' } });
+      assert.equal((await api.get(`/api/sales/invoices/${made.saleNo}`).set(auth)).body.items[0].length, '15/FT');
+      assert.equal((await api.get('/api/sales/invoices').set(auth)).body.find(i => i.saleNo === made.saleNo).items[0].length, '15/FT');
     });
 
     it('refuses to download a waiting invoice, or one it cannot draw correctly', async () => {
@@ -973,6 +989,30 @@ describe('sales invoices', () => {
       assert.equal(res.status, 422);
       assert.match(res.body.error, /Save as PDF/);
     });
+  });
+
+  it('suggests only bundles that can be sold, matching every word typed', async () => {
+    await conn.db.collection('products').insertOne({ dieNo: 'ZX-9', name: 'Zebra Handle', category: 'Aluminium', size: '7/8', finish: '', clValue: '12' });
+    const add = (bundleId, more) => conn.db.collection('bundles').insertOne({ bundleId, barcode: bundleId, dieNo: 'ZX-9', pieces: 5, weight: 9, packed: '2026-11-27', status: 'Packed', rack: 'Black', createdAt: new Date(), ...more });
+    await add('92001', {});
+    await add('92002', { rack: 'Gold' });
+    await add('92003', { status: 'Sold', pieces: 0 });
+    await add('92004', { reservedBy: 'SALE-000099' });
+    const search = async (q, headers = seller) => (await api.get(`/api/sales/search?q=${encodeURIComponent(q)}`).set(headers)).body;
+    const ids = async q => (await search(q)).map(b => b.bundleId).sort();
+
+    assert.deepEqual(await ids('zebra'), ['92001', '92002']);
+    assert.deepEqual(await ids('9200'), ['92001', '92002']);
+    assert.deepEqual(await ids('ZX-9 gold'), ['92002']);
+    assert.deepEqual(await ids('7/8 black handle'), ['92001']);
+    assert.deepEqual(await ids('zebra nothing'), []);
+    assert.deepEqual(await ids('(.*'), [], 'typed text is not a pattern');
+    const [first] = await search('92002');
+    assert.deepEqual([first.product, first.size, first.rack, first.pcs, first.weight, first.length], ['Zebra Handle', '7/8', 'Gold', 5, 9, '12']);
+    assert.equal(first.amount, undefined);
+    assert.ok((await search('')).length > 0, 'with nothing typed the newest bundles are offered');
+    const manager = await bearer('manager@invenza.com');
+    assert.equal((await api.get('/api/sales/search?q=zebra').set(manager)).status, 403);
   });
 
   it('lets only one of two sales people take the same bundle', async () => {

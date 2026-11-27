@@ -11,9 +11,23 @@
 
 @if (tab() === 'new') {
   <div class="card">
-    <div class="card-head"><div><div class="card-title">1. Add bundles</div><div class="card-note">Type the bundle number and press Enter{{ mobile ? ', or scan the label' : ' (a barcode scanner works too)' }}</div></div></div>
-    <form class="add-row" (submit)="$event.preventDefault(); add(code())">
-      <input class="input" type="search" name="bundle-code" aria-label="Bundle number" placeholder="Bundle number" autocomplete="off" autocapitalize="off" enterkeyhint="done" [value]="code()" (input)="code.set($any($event.target).value)" />
+    <div class="card-head"><div><div class="card-title">1. Add bundles</div><div class="card-note">Start typing and pick from the list, or enter the exact number and press Enter{{ mobile ? ', or scan the label' : ' (a barcode scanner works too)' }}</div></div></div>
+    <form class="add-row" (submit)="submitBundle($event)">
+      <div class="bundle-combo">
+        <input class="input" type="search" name="bundle-code" aria-label="Bundle number, product or rack" placeholder="Bundle no, product or rack" autocomplete="off" autocapitalize="off" enterkeyhint="done" role="combobox" aria-autocomplete="list" aria-controls="bundle-list" [attr.aria-expanded]="bundleListOpen() && bundleSuggestions().length > 0"
+               [value]="code()" (input)="typeBundle($any($event.target).value)" (focus)="openBundleList()" (click)="bundleListOpen() || openBundleList()" (blur)="closeBundleList()" (keydown)="bundleKey($event)" />
+        @if (bundleListOpen() && (bundleSuggestions().length || (code().trim() && !searching()))) {
+          <ul class="suggestions" id="bundle-list" role="listbox">
+            @for (s of bundleSuggestions(); track s.bundleId) {
+              <!-- mousedown keeps the focus in the box, so the list is still there for the click -->
+              <li role="option" [class.active]="$index === bundleMark()" [attr.aria-selected]="$index === bundleMark()" (mousedown)="$event.preventDefault()" (click)="chooseBundle(s)">
+                <strong><span class="mono">{{ s.bundleId }}</span> · {{ s.product }}</strong>
+                <small>{{ s.pcs }} PCS · {{ s.weight | number: '1.2-2' }} kg{{ s.size ? ' · Size ' + s.size : '' }}{{ s.rack && s.rack !== '—' ? ' · Rack ' + s.rack : '' }}</small>
+              </li>
+            } @empty { <li class="none" role="presentation">No available bundle matches.</li> }
+          </ul>
+        }
+      </div>
       <button class="btn primary" type="submit"><app-icon name="plus" [size]="16" /> Add</button>
       @if (mobile && !scanning()) { <button class="btn scan-button" type="button" (click)="scanning.set(true)"><app-icon name="layers" [size]="16" /> Scan barcode</button> }
     </form>

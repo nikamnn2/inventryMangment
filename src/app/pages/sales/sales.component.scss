@@ -31,3 +31,8 @@
 }
 
 @media screen and (max-width: 600px) { .invoice-modal .form-actions .btn { flex: 1 1 100%; justify-content: center; } }
+
+/* bundle suggestions under the add box */
+.bundle-combo { position: relative; flex: 1 1 220px; }
+.bundle-combo .input { width: 100%; }
+.suggestions li.none { cursor: default; color: var(--muted); background: none; }

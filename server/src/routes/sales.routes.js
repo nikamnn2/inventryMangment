@@ -10,6 +10,7 @@ export default function saleRoutes(ctx) {
   /** Invoices of whole bundles: add by number or scan, create, and (admins) approve or reject. */
   const invoices = invoicesController(ctx);
   r.get('/lookup/:code', wrap(invoices.lookup));
+  r.get('/search', wrap(invoices.search));
   r.get('/customers', wrap(invoices.customers));
   r.get('/invoices', wrap(invoices.list));
   r.get('/invoices/:saleNo/pdf', wrap(invoices.pdf));

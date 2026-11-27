@@ -1,45 +1,120 @@
-<!-- Purpose: A4 sales invoice: heading, sale number and date, customer, bundles grouped by product with subtotals, grand total. -->
+<!-- Purpose: sales invoice. On screen: a card-style preview; paper gets a packing-list table. -->
 @if (invoice(); as inv) {
   <article class="invoice" [class.sheet]="inv.status === 'issued'">
-    <h1>SALES INVOICE</h1>
-    <p class="company">{{ inv.company }}</p>
-    @if (inv.status !== 'issued') {
-      <p class="draft">{{ inv.status === 'rejected' ? 'REJECTED' : 'WAITING FOR ADMIN APPROVAL' }} · not an invoice</p>
-    }
-    <hr />
-    <div class="meta">
-      <strong>Sale Number: {{ inv.saleNo }}</strong>
-      <span>Date: {{ inv.issuedAt ?? inv.createdAt | date: 'MMM d, y, hh:mm a' }}</span>
-    </div>
-    <section class="customer">
-      <strong>Customer Details:</strong>
-      <div>Name: {{ inv.customer.name }}</div>
-      <div>Contact: {{ inv.customer.contact }}</div>
-      @if (inv.customer.email) { <div>Email: {{ inv.customer.email }}</div> }
-    </section>
-    <hr />
-
-    <h2>Bundle Details:</h2>
-    @for (g of groups(); track g.product + g.dieNo) {
-      <section class="group">
-        <div class="group-head">
-          <strong>{{ g.product }} (Die: {{ g.dieNo || '-' }})</strong>
-          <strong class="count">{{ g.items.length }} {{ g.items.length === 1 ? 'bundle' : 'bundles' }}</strong>
+    <!-- on screen (class names start with pv- so these styles never reach the print table) -->
+    <div class="screen-view">
+      <header class="pv-banner">
+        <div class="pv-brand">
+          <h1>SALES INVOICE</h1>
+          <p>{{ inv.company }}</p>
         </div>
-        <ul>
-          @for (i of g.items; track i.bundleId) {
-            <li>Bundle {{ i.bundleId }}: {{ i.weight | number: '1.0-2' }} Kg, {{ i.pcs }} PCS{{ rack(i.rack) }}</li>
-          }
-        </ul>
-        <div class="subtotal">Subtotal: {{ g.weight | number: '1.2-2' }} Kg, {{ g.pcs }} PCS</div>
-      </section>
-    }
+        <div class="pv-ref">
+          <span class="pv-state" [class.waiting]="inv.status !== 'issued'" [class.rejected]="inv.status === 'rejected'">{{ inv.status === 'issued' ? 'Issued' : inv.status === 'rejected' ? 'Rejected' : 'Waiting' }}</span>
+          <strong>{{ inv.saleNo }}</strong>
+          <span>{{ inv.issuedAt ?? inv.createdAt | date: 'dd MMM y, hh:mm a' }}</span>
+        </div>
+      </header>
+      @if (inv.status !== 'issued') {
+        <p class="pv-draft">{{ inv.status === 'rejected' ? 'REJECTED' : 'WAITING FOR ADMIN APPROVAL' }} · not an invoice</p>
+      }
 
-    <hr />
-    <div class="grand">
-      <div><div>GRAND TOTAL:</div><div>Total PCS: {{ inv.totals.pcs }}</div></div>
-      <div class="right"><div>{{ inv.totals.weight | number: '1.2-2' }} Kg</div><div>Total Bundles: {{ inv.totals.bundles }}</div></div>
+      <div class="pv-top">
+        <section class="pv-customer">
+          <span class="pv-label">Billed to</span>
+          <strong>{{ inv.customer.name }}</strong>
+          <span>{{ inv.customer.contact }}</span>
+          @if (inv.customer.email) { <span>{{ inv.customer.email }}</span> }
+        </section>
+        <section class="pv-stats">
+          <div><span class="pv-label">Bundles</span><strong>{{ inv.totals.bundles }}</strong></div>
+          <div><span class="pv-label">Total PCS</span><strong>{{ inv.totals.pcs }}</strong></div>
+          <div><span class="pv-label">Total weight</span><strong>{{ inv.totals.weight | number: '1.2-2' }} <small>Kg</small></strong></div>
+        </section>
+      </div>
+
+      @for (g of groups(); track g.product + g.dieNo) {
+        <section class="pv-group">
+          <div class="pv-group-head">
+            <div><strong>{{ g.product }}</strong><small>Die: {{ g.dieNo || '-' }}</small></div>
+            <span class="pv-count">{{ g.items.length }} {{ g.items.length === 1 ? 'bundle' : 'bundles' }}</span>
+          </div>
+          <div class="pv-columns" aria-hidden="true"><span>Bundle No</span><span>Rack</span><span>PCS</span><span>Weight</span></div>
+          <ul>
+            @for (i of g.items; track i.bundleId) {
+              <li>
+                <span class="pv-id">{{ i.bundleId }}</span>
+                <span class="pv-rack">@if (hasRack(i.rack)) { <em>{{ i.rack }}</em> } @else { — }</span>
+                <span class="pv-pcs">{{ i.pcs }} <small>PCS</small></span>
+                <span class="pv-weight">{{ i.weight | number: '1.2-2' }} <small>Kg</small></span>
+              </li>
+            }
+          </ul>
+          <div class="pv-subtotal"><span>Subtotal</span><span>{{ g.pcs }} PCS</span><strong>{{ g.weight | number: '1.2-2' }} Kg</strong></div>
+        </section>
+      }
+
+      <div class="pv-total">
+        <div><span>Grand total</span><small>{{ inv.totals.bundles }} {{ inv.totals.bundles === 1 ? 'bundle' : 'bundles' }} · {{ inv.totals.pcs }} PCS</small></div>
+        <strong>{{ inv.totals.weight | number: '1.2-2' }} Kg</strong>
+      </div>
+      <p class="pv-thanks">Thank you for your business!</p>
     </div>
-    <p class="thanks">Thank you for your business!</p>
+
+    <!-- printed on paper (the downloaded and shared PDF is drawn the same way by the server) -->
+    <div class="print-view">
+      <header class="doc-banner">
+        <div><strong class="doc-title">SALES INVOICE</strong><span>{{ inv.company }}</span></div>
+        <div class="doc-ref"><strong>{{ inv.saleNo }}</strong><span class="date">Date &nbsp;{{ inv.issuedAt ?? inv.createdAt | date: 'dd/MM/yyyy' }}</span></div>
+      </header>
+      <div class="doc-info">
+        <div class="doc-customer">
+          <small>Billed to</small>
+          <strong class="party">{{ inv.customer.name }}</strong>
+          <span class="contact">{{ inv.customer.contact }}@if (inv.customer.email) { <span> · {{ inv.customer.email }}</span> }</span>
+        </div>
+        <div class="doc-stat"><small>Bundles</small><strong>{{ inv.totals.bundles }}</strong></div>
+        <div class="doc-stat"><small>Total PCS</small><strong>{{ inv.totals.pcs }}</strong></div>
+        <div class="doc-stat"><small>Total weight</small><strong>{{ two(inv.totals.weight) }} Kg</strong></div>
+      </div>
+
+      <table [class.with-rack]="showRack()">
+        <thead>
+          <tr>
+            <th class="sr">Sr No</th><th class="code">Barcode</th>
+            @if (showRack()) { <th class="rack">Rack</th> }
+            <th class="num">WT</th><th class="num">PC</th><th class="le">LE</th><th class="num">WT/PC</th>
+          </tr>
+        </thead>
+        @for (g of groups(); track g.product + g.dieNo) {
+          <tbody>
+            <tr class="product"><th [attr.colspan]="showRack() ? 7 : 6">{{ g.product }}</th></tr>
+            @for (row of g.rows; track row.item.bundleId) {
+              <tr class="item">
+                <td class="sr">{{ row.sr }}</td>
+                <td class="code">{{ row.item.bundleId }}</td>
+                @if (showRack()) { <td class="rack">{{ hasRack(row.item.rack) ? row.item.rack : '' }}</td> }
+                <td class="num">{{ two(row.item.weight) }}</td>
+                <td class="num">{{ two(row.item.pcs) }}</td>
+                <td class="le">{{ lengthOf(row.item.length) }}</td>
+                <td class="num">{{ perPiece(row.item) }}</td>
+              </tr>
+            }
+            <tr class="sum-row">
+              <td></td><td></td>
+              @if (showRack()) { <td></td> }
+              <td class="num">{{ two(g.weight) }}</td><td class="num">{{ two(g.pcs) }}</td><td></td><td></td>
+            </tr>
+          </tbody>
+        }
+        <!-- a tbody, not a tfoot: a tfoot would be repeated on every printed page -->
+        <tbody>
+          <tr class="total-row">
+            <td [attr.colspan]="showRack() ? 3 : 2">GRAND TOTAL · {{ inv.totals.bundles }} {{ inv.totals.bundles === 1 ? 'bundle' : 'bundles' }}</td>
+            <td class="num">{{ two(inv.totals.weight) }}</td><td class="num">{{ two(inv.totals.pcs) }}</td><td></td><td></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="doc-thanks">Thank you for your business!</p>
+    </div>
   </article>
 }

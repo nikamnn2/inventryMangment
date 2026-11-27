@@ -47,6 +47,22 @@ export class SalesComponent {
   protected readonly saving = signal(false);
   private readonly adding = new Set<string>();
 
+  // ---- bundle suggestions ----
+  protected readonly bundleListOpen = signal(false);
+  protected readonly searching = signal(false);
+  /** The suggestion chosen with the arrow keys; -1 means none, so Enter looks for the exact number typed. */
+  protected readonly bundleMark = signal(-1);
+  private readonly found = signal<InvoiceLine[]>([]);
+  /** Matches that are not on this sale yet. */
+  protected readonly bundleSuggestions = computed(() => {
+    const taken = new Set(this.items().map(i => i.bundleId));
+    return this.found().filter(b => !taken.has(b.bundleId)).slice(0, 8);
+  });
+  /** How long typing must pause before searching (a field so tests need not wait). */
+  protected searchDelay = 200;
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchNo = 0;
+
   protected readonly totals = computed(() => this.items().reduce(
     (t, i) => ({ bundles: t.bundles + 1, pcs: t.pcs + i.pcs, weight: Math.round((t.weight + i.weight) * 100) / 100 }),
     { bundles: 0, pcs: 0, weight: 0 }));
@@ -120,6 +136,64 @@ export class SalesComponent {
   private async loadCustomers(): Promise<void> {
     const result = await this.api.customers();
     if (typeof result !== 'string') this.saved.set(result);
+  }
+
+  protected typeBundle(text: string): void {
+    this.code.set(text);
+    this.error.set('');
+    this.openBundleList();
+  }
+
+  /** Shows suggestions for what is typed (the newest bundles when nothing is typed yet). */
+  protected openBundleList(): void {
+    this.bundleListOpen.set(true);
+    this.bundleMark.set(-1);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    const text = this.code().trim();
+    const mine = ++this.searchNo;
+    this.searching.set(true);
+    this.searchTimer = setTimeout(() => void this.runSearch(text, mine), this.searchDelay);
+  }
+
+  private async runSearch(text: string, mine: number): Promise<void> {
+    const result = await this.api.search(text);
+    if (mine !== this.searchNo) return; // an answer to older typing
+    this.searching.set(false);
+    this.found.set(typeof result === 'string' ? [] : result);
+  }
+
+  protected closeBundleList(): void {
+    this.bundleListOpen.set(false);
+    this.bundleMark.set(-1);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchNo++;
+    this.searching.set(false);
+  }
+
+  /** Adds a chosen suggestion; it is looked up again, so it cannot have been sold meanwhile. */
+  protected async chooseBundle(bundle: InvoiceLine): Promise<void> {
+    this.closeBundleList();
+    await this.add(bundle.bundleId);
+  }
+
+  /** Arrow keys move through the suggestions, Escape closes them. */
+  protected bundleKey(event: KeyboardEvent): void {
+    const list = this.bundleSuggestions();
+    if (event.key === 'Escape') return this.closeBundleList();
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    if (!this.bundleListOpen()) return this.openBundleList();
+    if (!list.length) return;
+    event.preventDefault();
+    this.bundleMark.update(i => (event.key === 'ArrowDown' ? (i + 1) % list.length : i <= 0 ? list.length - 1 : i - 1));
+  }
+
+  /** Enter or "Add": the marked suggestion, or else exactly the number typed (which is what a scanner sends). */
+  protected async submitBundle(event: Event): Promise<void> {
+    event.preventDefault();
+    const marked = this.bundleListOpen() ? this.bundleSuggestions()[this.bundleMark()] : undefined;
+    if (marked) return this.chooseBundle(marked);
+    this.closeBundleList();
+    await this.add(this.code());
   }
 
   /** Looks a bundle up by its number and adds it, with all its details, to the list. */

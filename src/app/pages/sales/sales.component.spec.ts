@@ -32,6 +32,7 @@ describe('SalesComponent', () => {
     api = TestBed.inject(InvoiceService);
     spyOn(api, 'list').and.resolveTo(invoices);
     spyOn(api, 'customers').and.resolveTo(SAVED);
+    spyOn(api, 'search').and.resolveTo([]);
     const auth = TestBed.inject(AuthService);
     Object.defineProperty(auth, 'disabled', { value: false });
     auth.user.set({ email: 'a@b.c', name: 'A', role, modules: ['sales'] });
@@ -63,6 +64,75 @@ describe('SalesComponent', () => {
     await Promise.all([c.add('103719'), c.add('103719')]);
     expect(lookup).toHaveBeenCalledTimes(1);
     expect(c.items().length).toBe(1);
+  });
+
+  describe('bundle suggestions', () => {
+    const FOUND = [LINE('103719'), { ...LINE('103838', 16, 19.78), product: '18x40 HANDAL', rack: 'Black' }];
+    const key = (k: string) => c.bundleKey(new KeyboardEvent('keydown', { key: k, cancelable: true }));
+    const settle = () => new Promise(r => setTimeout(r, 20));
+
+    async function ready() {
+      await setup();
+      c.searchDelay = 0;
+      (api.search as jasmine.Spy).and.resolveTo(FOUND);
+      return spyOn(api, 'lookup').and.callFake(async code => FOUND.find(f => f.bundleId === code) ?? 'Bundle not found.');
+    }
+
+    it('lists matches while typing and adds the one clicked, with its details', async () => {
+      const lookup = await ready();
+      c.typeBundle('1037');
+      await settle();
+      expect(api.search).toHaveBeenCalledWith('1037');
+      expect(text()).toContain('18x40 HANDAL');
+      expect(text()).toContain('16 PCS · 19.78 kg');
+      expect(text()).toContain('Rack Black');
+      (fixture.nativeElement.querySelectorAll('.bundle-combo li')[1] as HTMLElement).click();
+      await settle();
+      expect(lookup).toHaveBeenCalledWith('103838');
+      expect(c.items().map((i: InvoiceLine) => i.bundleId)).toEqual(['103838']);
+      expect(c.code()).toBe('');
+      expect(c.bundleListOpen()).toBeFalse();
+      // an added bundle is not suggested again
+      c.openBundleList();
+      await settle();
+      expect(c.bundleSuggestions().map((b: InvoiceLine) => b.bundleId)).toEqual(['103719']);
+    });
+
+    it('adds the suggestion marked with the arrow keys', async () => {
+      await ready();
+      c.typeBundle('10');
+      await settle();
+      key('ArrowDown');
+      key('ArrowDown');
+      await c.submitBundle(new Event('submit'));
+      expect(c.items()[0].bundleId).toBe('103838');
+    });
+
+    it('on Enter without choosing adds only the exact number, never the first suggestion', async () => {
+      const lookup = await ready();
+      c.typeBundle('1037');
+      await settle();
+      await c.submitBundle(new Event('submit'));
+      expect(lookup).toHaveBeenCalledWith('1037');
+      expect(c.items()).toEqual([]);
+      expect(c.error()).toBe('Bundle not found.');
+    });
+
+    it('ignores a late answer, says when nothing matches, and closes on Escape', async () => {
+      await ready();
+      let late!: (v: InvoiceLine[]) => void;
+      (api.search as jasmine.Spy).and.returnValues(new Promise(r => (late = r)), Promise.resolve([]));
+      c.typeBundle('old');
+      await settle();
+      c.typeBundle('zzz');
+      await settle();
+      late(FOUND);
+      await settle();
+      expect(c.bundleSuggestions()).toEqual([]);
+      expect(text()).toContain('No available bundle matches.');
+      key('Escape');
+      expect(c.bundleListOpen()).toBeFalse();
+    });
   });
 
   it('shows why a bundle cannot be added', async () => {
@@ -143,6 +213,7 @@ describe('SalesComponent', () => {
     expect(create).toHaveBeenCalledWith(['1', '2'], { name: 'Ganesh Landge', contact: '9860470406', email: '' });
     expect(c.items()).toEqual([]);
     expect(text()).toContain('SALES INVOICE');
+    expect(text()).toContain('SALE-000150');
     expect(text()).toContain('Print invoice (A4)');
     expect(data.refreshBundles).toHaveBeenCalled();
     const print = spyOn(window, 'print');

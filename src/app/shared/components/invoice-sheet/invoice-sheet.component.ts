@@ -18,9 +18,16 @@ export function groupByProduct(items: InvoiceLine[]): InvoiceGroup[] {
   return [...groups.values()];
 }
 
+/** An empty rack is saved as "—". */
+export const hasRack = (rack?: string): boolean => !!rack && !['—', '-'].includes(rack);
+
+/** The length column: the number in the product's CL value ("15/FT" is 15), else the value itself. */
+export const lengthOf = (clValue?: string): string => clValue?.match(/\d+(\.\d+)?/)?.[0] ?? (clValue?.trim() || '-');
+
 /**
- * Purpose: the sales invoice as it is printed on A4 paper. Only an issued invoice is marked as the
- * printable sheet, so one waiting for approval cannot be printed as an invoice.
+ * Purpose: the sales invoice. On screen it is a card-style preview; on A4 paper it prints as a
+ * packing-list table with weight and piece subtotals. Only an issued invoice is marked as the printable
+ * sheet, so one waiting for approval cannot be printed as an invoice.
  */
 @Component({
   selector: 'app-invoice-sheet',
@@ -30,10 +37,23 @@ export function groupByProduct(items: InvoiceLine[]): InvoiceGroup[] {
 })
 export class InvoiceSheetComponent {
   readonly invoice = input.required<Invoice>();
-  protected readonly groups = computed(() => groupByProduct(this.invoice().items));
 
-  /** ", Rack: Black", or nothing for a bundle without a rack (saved as "—"). */
-  protected rack(value?: string): string {
-    return value && !['—', '-'].includes(value) ? `, Rack: ${value}` : '';
+  /** The groups, with serial numbers that run on from one product to the next. */
+  protected readonly groups = computed(() => {
+    let sr = 0;
+    return groupByProduct(this.invoice().items).map(g => ({ ...g, rows: g.items.map(item => ({ sr: ++sr, item })) }));
+  });
+  /** The rack column appears only when some bundle on the invoice has a rack. */
+  protected readonly showRack = computed(() => this.invoice().items.some(i => hasRack(i.rack)));
+  protected readonly hasRack = hasRack;
+  protected readonly lengthOf = lengthOf;
+
+  /** Two decimals without thousands separators, as on the packing list. */
+  protected two(value: number): string {
+    return value.toFixed(2);
+  }
+
+  protected perPiece(item: InvoiceLine): string {
+    return item.pcs > 0 ? (item.weight / item.pcs).toFixed(2) : '-';
   }
 }
