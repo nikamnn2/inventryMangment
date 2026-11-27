@@ -15,7 +15,7 @@ if (!existsSync(join(server, 'node_modules', 'supertest'))) {
   run('npm install --omit=dev --no-audit --no-fund', server);
 }
 
-// @playwright/test is development-only (karma is not: the Angular build tools pull it in), so its absence means a deployment.
+// @playwright/test is development-only (nothing the build needs pulls it in), so its absence means a deployment.
 if (!existsSync(join(root, 'node_modules', '@playwright', 'test'))) {
   run('npm run build:prod', root);
 }

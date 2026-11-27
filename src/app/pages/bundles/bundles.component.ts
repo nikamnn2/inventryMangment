@@ -12,7 +12,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { PagerComponent, createPager } from '../../shared/components/pager/pager.component';
 
 /** Fields of the add / edit dialog. */
-interface BundleForm { code: string; pieces: number; weight: number; packed: string; rack: string; status: Status; }
+interface BundleForm { code: string; pieces: number | null; weight: number | null; packed: string; rack: string; status: Status; }
 
 /** Purpose: Bundles page: list / search bundles, add or edit one, and open its printable label (barcode + QR code). */
 @Component({
@@ -83,7 +83,8 @@ export class BundlesComponent {
 
   /** Average weight per piece shown in the form. */
   protected avg(): string {
-    return this.form.pieces > 0 ? (this.form.weight / this.form.pieces).toFixed(3) : '';
+    const { pieces, weight } = this.form;
+    return pieces !== null && pieces > 0 && weight !== null ? (weight / pieces).toFixed(3) : '';
   }
 
   /** Where this user's last rack choice is remembered on this device. */
@@ -102,7 +103,7 @@ export class BundlesComponent {
   /** Default values for a new bundle. */
   private blank(): BundleForm {
     // there may be no products yet (new database, or the list is still loading)
-    return { code: this.data.products()[0]?.code ?? '', pieces: 10, weight: 50, packed: new Date().toISOString().slice(0, 10), rack: this.lastRack(), status: 'Packed' };
+    return { code: this.data.products()[0]?.code ?? '', pieces: null, weight: null, packed: new Date().toISOString().slice(0, 10), rack: this.lastRack(), status: 'Packed' };
   }
 
   /** Opens the dialog, empty for a new bundle or filled for editing. */
@@ -118,7 +119,8 @@ export class BundlesComponent {
   protected async save(e: Event): Promise<void> {
     e.preventDefault();
     const f = this.form;
-    if (!f.code || !(f.pieces >= 0) || !(f.weight >= 0) || (!this.editingId() && (f.pieces < 1 || f.weight <= 0))) {
+    const { pieces, weight } = f;
+    if (!f.code || pieces === null || weight === null || !(pieces >= 0) || !(weight >= 0) || (!this.editingId() && (pieces < 1 || weight <= 0))) {
       this.error.set('Select a product and enter pieces and weight.');
       return;
     }
@@ -131,9 +133,9 @@ export class BundlesComponent {
     let failure: string | null;
     let created: Bundle | null = null;
     if (id) {
-      failure = await this.data.updateBundle(id, { ...f, rack: rack || '—' });
+      failure = await this.data.updateBundle(id, { ...f, pieces, weight, rack: rack || '—' });
     } else {
-      const r = await this.data.addBundle({ ...f, rack: rack || '—' });
+      const r = await this.data.addBundle({ ...f, pieces, weight, rack: rack || '—' });
       failure = typeof r === 'string' ? r : null;
       created = typeof r === 'string' ? null : r;
       if (created) this.rememberRack(rack);

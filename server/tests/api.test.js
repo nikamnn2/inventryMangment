@@ -1059,6 +1059,28 @@ describe('changing racks', () => {
   });
 });
 
+describe('search engines', () => {
+  it('may list the sign-in page only', async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = mkdtempSync(join(tmpdir(), 'web-'));
+    try {
+      for (const [file, text] of [['index.csr.html', '<html></html>'], ['robots.txt', 'User-agent: *'], ['sitemap.xml', '<urlset/>'], ['main.js', '']]) {
+        writeFileSync(join(dir, file), text);
+      }
+      const site = request(createApp({ db: conn.db, poolStats: conn.poolStats, config: { ...config, webDir: dir }, mailer }));
+      const robots = async url => (await site.get(url)).headers['x-robots-tag'] ?? '';
+      for (const url of ['/', '/login', '/login/', '/robots.txt', '/sitemap.xml', '/main.js']) assert.equal(await robots(url), '', url);
+      for (const url of ['/dashboard', '/sales', '/members', '/activate?token=abc', '/reset-password', '/index.csr.html', '/api/health', '/api/products', '/api/nothing']) {
+        assert.equal(await robots(url), 'noindex, nofollow', url);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('mail service', () => {
   it('prints the message instead of failing when SMTP is not configured', async () => {
     const { createMailer } = await import('../src/services/mail.service.js');

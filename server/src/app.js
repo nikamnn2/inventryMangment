@@ -27,6 +27,12 @@ export function createApp(ctx) {
   app.use(cors({ origin: config.corsOrigin.split(','), exposedHeaders: ['Content-Disposition'] }));
   app.use(express.json({ limit: '100kb' }));
 
+  /** Nothing the API answers belongs in a search engine. */
+  app.use('/api', (_req, res, next) => {
+    res.set('X-Robots-Tag', 'noindex, nofollow');
+    next();
+  });
+
   /** Health check for dev tools / monitoring: pings MongoDB and reports connection-pool usage. */
   app.get('/api/health', async (_req, res) => {
     await db.command({ ping: 1 });

@@ -9,7 +9,8 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   {
     path: 'login',
-    title: 'Sign in · Invenza',
+    // the one public page: this is the title search results show
+    title: 'Sign in | Siddheshwar Aluminium & Glass Inventory Management',
     loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent),
   },
   {

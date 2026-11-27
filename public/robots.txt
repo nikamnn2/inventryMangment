@@ -1,0 +1,7 @@
+# Search engines may read the website; the API holds no public pages.
+# Private pages are not blocked here on purpose: the server marks them "noindex", which a search engine
+# can only see if it is allowed to fetch them.
+User-agent: *
+Disallow: /api/
+
+Sitemap: https://shrisiddheshwar.sahyadriinfotech.com/sitemap.xml

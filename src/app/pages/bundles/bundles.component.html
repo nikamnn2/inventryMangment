@@ -60,8 +60,8 @@
           <select class="input" name="code" [(ngModel)]="form.code">
             @for (p of data.products(); track p.code) { <option [value]="p.code">{{ p.code }} · {{ p.name }}</option> }
           </select></div>
-        <div class="field"><label>Pieces (PCS) *</label><input class="input" type="number" min="0" name="pieces" [(ngModel)]="form.pieces" /></div>
-        <div class="field"><label>Total weight (kg) *</label><input class="input" type="number" min="0" step="0.01" name="weight" [(ngModel)]="form.weight" />
+        <div class="field"><label>Pieces (PCS) *</label><input class="input" type="number" min="0" name="pieces" placeholder="e.g. 10" [(ngModel)]="form.pieces" /></div>
+        <div class="field"><label>Total weight (kg) *</label><input class="input" type="number" min="0" step="0.01" name="weight" placeholder="e.g. 50.25" [(ngModel)]="form.weight" />
           <span class="card-note">Enter manually · scale capture is planned</span></div>
         <div class="field"><label>Avg. weight (kg/pc)</label><input class="input" readonly name="avg" [value]="avg()" /></div>
         <div class="field"><label>Date packed</label><input class="input" type="date" name="packed" [(ngModel)]="form.packed" /></div>

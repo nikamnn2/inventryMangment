@@ -71,7 +71,7 @@ jobs:
       - name: Test the web app
         run: |
           npm ci
-          npm test -- --watch=false --browsers=ChromeHeadless
+          npm test -- --watch=false
 
   deploy-api:
     name: Deploy API
