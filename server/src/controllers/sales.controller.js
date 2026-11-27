@@ -33,16 +33,18 @@ export function salesController({ db }) {
      * so two cashiers selling the same bundle at once can never oversell it.
      */
     async create(req, res) {
+      if (req.user.role !== 'admin') throw new HttpError(403, 'Create an invoice instead; an admin will approve it.');
       const { bundleId, quantity, customer } = parseSaleRequest(req.body);
 
       const bundle = await bundles.findOne({ bundleId });
       if (!bundle) throw new HttpError(404, 'Bundle not found.');
+      if (bundle.reservedBy) throw new HttpError(409, `This bundle is waiting for approval on ${bundle.reservedBy}.`);
       if (bundle.pieces === 0) throw new HttpError(409, 'This bundle is sold out.');
       if (quantity > bundle.pieces) throw new HttpError(409, `Only ${bundle.pieces} pcs available in this bundle.`);
 
       // pipeline update: stage 1 reads the old values, stage 2 sees the new piece count
       const before = await bundles.findOneAndUpdate(
-        { bundleId, pieces: { $gte: quantity } },
+        { bundleId, pieces: { $gte: quantity }, reservedBy: { $exists: false } },
         [
           {
             $set: {

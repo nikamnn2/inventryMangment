@@ -12,12 +12,23 @@
       <span class="tag">{{ data.bundles().length }} bundles</span>
     </div>
   </div>
+  @if (notice()) { <div class="notice ok" role="status" style="margin-bottom:12px">{{ notice() }}</div> }
+  <!-- tick bundles to correct their rack together -->
+  <div class="pick-bar">
+    <label class="pick-all"><input type="checkbox" [checked]="allPicked()" [disabled]="!list().length" (change)="pickAll()" /> Select all {{ list().length }} {{ q().trim() ? 'found' : 'bundles' }}</label>
+    @if (pickedBundles().length) {
+      <span class="pick-count">{{ pickedBundles().length }} selected</span>
+      <button class="btn sm primary" type="button" (click)="openRackDialog()">Change rack</button>
+      <button class="btn sm" type="button" (click)="clearPicked()">Clear</button>
+    }
+  </div>
   <div class="table-wrap">
     <table class="tbl stack">
-      <thead><tr><th>Bundle ID</th><th>Product</th><th class="right">Pieces</th><th class="right">Weight</th><th class="right">Avg / pc</th><th>Rack</th><th>Packed</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th><span class="sr-only">Select</span></th><th>Bundle ID</th><th>Product</th><th class="right">Pieces</th><th class="right">Weight</th><th class="right">Avg / pc</th><th>Rack</th><th>Packed</th><th>Status</th><th></th></tr></thead>
       <tbody>
         @for (b of pager.rows(); track b.id) {
-          <tr>
+          <tr [class.picked]="picked().has(b.id)">
+            <td data-label="Select"><input class="pick" type="checkbox" [checked]="picked().has(b.id)" (change)="togglePick(b.id)" [attr.aria-label]="'Select bundle ' + b.id" /></td>
             <td class="mono" data-label="Bundle ID">{{ b.id }}</td>
             <td data-label="Product"><div><strong>{{ data.productName(b.code) }}</strong><div class="muted small">Die No {{ b.code }}</div></div></td>
             <td class="right" data-label="Pieces">{{ b.pieces }}</td>
@@ -31,7 +42,7 @@
               <button class="btn sm" type="button" (click)="label.set(b)">Label</button>
             </td>
           </tr>
-        } @empty { <tr><td colspan="9" class="muted">No bundles found.</td></tr> }
+        } @empty { <tr><td colspan="10" class="muted">No bundles found.</td></tr> }
       </tbody>
     </table>
   </div>
@@ -54,8 +65,8 @@
           <span class="card-note">Enter manually · scale capture is planned</span></div>
         <div class="field"><label>Avg. weight (kg/pc)</label><input class="input" readonly name="avg" [value]="avg()" /></div>
         <div class="field"><label>Date packed</label><input class="input" type="date" name="packed" [(ngModel)]="form.packed" /></div>
-        <div class="field"><label>Rack</label><input class="input" name="rack" maxlength="20" [(ngModel)]="form.rack" placeholder="A-01" />
-          <span class="card-note">Printed as “Label” on the sticker</span></div>
+        <div class="field"><label for="rack">Rack</label><app-rack-select [options]="racks()" [(value)]="form.rack" [(other)]="rackOther" />
+          <span class="card-note">Printed as “Label” on the sticker{{ editingId() ? '' : '. Stays chosen for your next bundle.' }}</span></div>
         <div class="field"><label>Status</label>
           <select class="input" name="status" [(ngModel)]="form.status"><option>Packed</option><option>Shipped</option><option>Sold</option></select></div>
       </div>
@@ -63,6 +74,25 @@
       <div class="form-actions">
         <button class="btn" type="button" (click)="dialog.set(false)">Cancel</button>
         <button class="btn primary" type="submit">Save bundle</button>
+      </div>
+    </form>
+  </div>
+}
+
+<!-- Change the rack of the ticked bundles. -->
+@if (rackDialog()) {
+  <div class="modal-scrim" (click)="rackDialog.set(false)">
+    <form class="modal rack-modal" (click)="$event.stopPropagation()" (submit)="changeRacks($event)" role="dialog" aria-modal="true" aria-label="Change rack">
+      <h2>Change rack</h2>
+      <p class="card-note" style="margin-bottom:12px">For {{ pickedBundles().length }} selected {{ pickedBundles().length === 1 ? 'bundle' : 'bundles' }}. Pieces and weight stay the same.</p>
+      <ul class="picked-list">
+        @for (b of pickedBundles(); track b.id) { <li><span class="mono">{{ b.id }}</span> {{ data.productName(b.code) }} <span class="muted">now {{ b.rack }}</span></li> }
+      </ul>
+      <div class="field"><label for="bulk-rack">New rack</label><app-rack-select inputId="bulk-rack" [options]="racks()" [(value)]="bulkRack" [(other)]="bulkOther" /></div>
+      @if (rackError()) { <div class="notice err" role="alert" style="margin-top:14px">{{ rackError() }}</div> }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="rackDialog.set(false)">Cancel</button>
+        <button class="btn primary" type="submit" [disabled]="rackSaving()">{{ rackSaving() ? 'Saving…' : 'Change rack' }}</button>
       </div>
     </form>
   </div>

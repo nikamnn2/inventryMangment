@@ -42,10 +42,12 @@ export interface Sale {
   weight: number;
   customer: string;
   amount: number;
+  /** Set on a line of a sales invoice; earlier single bills have none. */
+  invoiceNo?: string;
 }
 
 /** A customer or supplier. */
-export interface Party { name: string; city: string; contact: string; detail: string; status: string; }
+export interface Party { name: string; city: string; contact: string; detail: string; status: string; email?: string; }
 
 /** Company details, low-stock threshold and the price per kg for each category. */
 export interface Settings {
@@ -79,7 +81,7 @@ export const LOW_STOCK_LIMIT = 20;
 /* ---- API <-> UI shape adapters (the API speaks dieNo / bundleId / billNo) ---- */
 interface ApiProduct { dieNo: string; name: string; category: Category; size: string; finish: string; clValue?: string; }
 interface ApiBundle { bundleId: string; dieNo: string; pieces: number; weight: number; packed: string; status: Status; rack: string; }
-interface ApiSale { billNo: string; bundleId: string; product: string; pcs: number; weight: number; customer: string; amount: number; createdAt: string; }
+interface ApiSale { invoiceNo?: string; billNo: string; bundleId: string; product: string; pcs: number; weight: number; customer: string; amount: number; createdAt: string; }
 
 /** Converters between the API's field names (dieNo, bundleId, billNo) and the names used by the screens. */
 const toProduct = (p: ApiProduct): Product => ({ code: p.dieNo, name: p.name, category: p.category, size: p.size, finish: p.finish, clValue: p.clValue });
@@ -89,7 +91,7 @@ const fromBundle = (b: Partial<Bundle>) => ({ dieNo: b.code, pieces: b.pieces, w
 const toSale = (s: ApiSale): Sale => {
   const ts = Date.parse(s.createdAt);
   const date = new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·');
-  return { id: s.billNo, date, ts, bundleId: s.bundleId, product: s.product, pcs: s.pcs, weight: s.weight, customer: s.customer, amount: s.amount };
+  return { id: s.billNo, date, ts, bundleId: s.bundleId, product: s.product, pcs: s.pcs, weight: s.weight, customer: s.customer, amount: s.amount, ...(s.invoiceNo && { invoiceNo: s.invoiceNo }) };
 };
 
 /** A tab the role cannot open answers 403: treat that data as empty instead of failing the whole load. */
@@ -216,6 +218,18 @@ export class DataService {
       const saved = toBundle(await firstValueFrom(this.http.put<ApiBundle>(`/api/bundles/${id}`, fromBundle(b))));
       this.bundles.update(list => list.map(x => (x.id === id ? saved : x)));
       return null;
+    } catch (e) {
+      return message(e);
+    }
+  }
+
+  /** Sets the rack of several bundles. Resolves to the ones left unchanged (held by a waiting invoice), or an error message. */
+  async setRack(bundleIds: string[], rack: string): Promise<{ updated: number; held: string[] } | string> {
+    try {
+      const result = await firstValueFrom(this.http.put<{ rack: string; updated: number; held: string[] }>('/api/bundles/rack', { bundleIds, rack }));
+      const changed = new Set(bundleIds.filter(id => !result.held.includes(id)));
+      this.bundles.update(list => list.map(b => (changed.has(b.id) ? { ...b, rack: result.rack } : b)));
+      return result;
     } catch (e) {
       return message(e);
     }

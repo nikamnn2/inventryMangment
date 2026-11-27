@@ -4,4 +4,4 @@ export const MODULES = ['dashboard', 'products', 'bundles', 'sales', 'stock', 'c
 
 export type Module = (typeof MODULES)[number];
 
-export const ROLE_LABELS: Record<string, string> = { admin: 'Administrator', manager: 'Manager', accountant: 'Accountant' };
+export const ROLE_LABELS: Record<string, string> = { admin: 'Administrator', manager: 'Manager', accountant: 'Accountant', sales: 'Sales' };

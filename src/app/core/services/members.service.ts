@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-export type RoleName = 'admin' | 'manager' | 'accountant';
+export type RoleName = 'admin' | 'manager' | 'accountant' | 'sales';
 
 export interface Member {
   email: string;

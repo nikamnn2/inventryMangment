@@ -7,6 +7,7 @@ export function parseParty(body) {
     name: str(body?.name, 'Name', { required: true }),
     city: str(body?.city, 'City', { max: 60 }),
     contact: str(body?.contact, 'Contact', { max: 60 }),
+    email: str(body?.email, 'Email', { max: 120 }).toLowerCase(),
     detail: str(body?.detail, 'Details', { max: 200 }),
     status: 'Active',
   };

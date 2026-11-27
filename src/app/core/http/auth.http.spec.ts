@@ -96,8 +96,13 @@ describe('moduleGuard', () => {
     expect(run('reports')).toBeTrue();
   });
 
+  it('sends a role without a dashboard to its own first page', () => {
+    setup().user.set({ email: 'a@b.c', name: 'A', role: 'sales', modules: ['sales'] });
+    expect(String(run('dashboard'))).toBe('/sales');
+  });
+
   it('sends the user to the dashboard for a tab the role lacks', () => {
-    setup().user.set({ email: 'a@b.c', name: 'A', role: 'accountant', modules: ['reports'] });
+    setup().user.set({ email: 'a@b.c', name: 'A', role: 'accountant', modules: ['dashboard', 'reports'] });
     const result = run('settings') as UrlTree;
     expect(result instanceof UrlTree).toBeTrue();
     expect(result.toString()).toBe('/dashboard');

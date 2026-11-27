@@ -7,6 +7,20 @@ export const BUNDLE_STATUSES = ['Packed', 'Shipped', 'Sold'];
 /** Adds avgWeight (kg per piece) to a bundle for display. */
 export const withAvg = b => ({ ...b, avgWeight: b.pieces > 0 ? Math.round((b.weight / b.pieces) * 1000) / 1000 : 0 });
 
+/** Most bundles whose rack can be changed in one go. */
+export const MAX_RACK_CHANGE = 500;
+
+/** Validates "set this rack on these bundles"; an empty rack is stored as "—". */
+export function parseRackChange(body) {
+  const list = body?.bundleIds;
+  if (!Array.isArray(list) || !list.length) throw new HttpError(400, 'Select at least one bundle.');
+  if (list.length > MAX_RACK_CHANGE) throw new HttpError(400, `Change at most ${MAX_RACK_CHANGE} bundles at a time.`);
+  return {
+    bundleIds: [...new Set(list.map(id => str(id, 'Bundle number', { required: true, max: 64 })))],
+    rack: str(body?.rack, 'Rack', { max: 20 }) || '—',
+  };
+}
+
 /** Validates a bundle payload. `products` is the products collection, used to check the Die No exists. */
 export async function parseBundle(body, products, { creating }) {
   const dieNo = str(body?.dieNo, 'Product / Die No', { required: true, max: 40 });

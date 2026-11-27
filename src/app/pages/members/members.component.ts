@@ -39,7 +39,7 @@ export class MembersComponent {
   protected readonly me = computed(() => this.auth.user());
   protected readonly isSuper = computed(() => this.auth.disabled || !!this.me()?.superAdmin);
   /** Only the super admin can hand out the admin role. */
-  protected readonly roles = computed<RoleName[]>(() => (this.isSuper() ? ['admin', 'manager', 'accountant'] : ['manager', 'accountant']));
+  protected readonly roles = computed<RoleName[]>(() => (this.isSuper() ? ['admin', 'manager', 'accountant', 'sales'] : ['manager', 'accountant', 'sales']));
 
   protected readonly filtered = computed(() => {
     const q = this.q().trim().toLowerCase();
@@ -65,7 +65,7 @@ export class MembersComponent {
 
   /** Badge colour for a role. */
   protected roleClass(role: string): string {
-    return role === 'admin' ? 'danger' : role === 'manager' ? 'info' : 'ok';
+    return role === 'admin' ? 'danger' : role === 'manager' || role === 'sales' ? 'info' : 'ok';
   }
 
   /** Opens the dialog for a new or existing member. */

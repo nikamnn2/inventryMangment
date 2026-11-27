@@ -329,10 +329,10 @@ describe('roles', () => {
     assert.equal((await api.get('/api/products').set(headers)).status, 200);
   });
 
-  it('blocks an accountant from products and bundles but allows sales and reports', async () => {
+  it('blocks an accountant from products, bundles and sales but allows reports', async () => {
     const { headers } = await as('accountant@invenza.com');
-    for (const url of ['/api/products', '/api/bundles']) assert.equal((await api.get(url).set(headers)).status, 403, url);
-    for (const url of ['/api/sales', '/api/reports', '/api/stock', '/api/dashboard', '/api/customers']) assert.equal((await api.get(url).set(headers)).status, 200, url);
+    for (const url of ['/api/products', '/api/bundles', '/api/sales']) assert.equal((await api.get(url).set(headers)).status, 403, url);
+    for (const url of ['/api/reports', '/api/stock', '/api/dashboard', '/api/customers']) assert.equal((await api.get(url).set(headers)).status, 200, url);
     const denied = await api.post('/api/products').set(headers).send({ dieNo: 'X', name: 'X' });
     assert.equal(denied.status, 403);
     assert.equal(denied.body.error, 'You do not have access to this section.');
@@ -789,6 +789,175 @@ describe('forgotten password', () => {
     const res = await app.post('/api/auth/forgot').send({ email });
     assert.equal(res.status, 429);
     assert.match(res.body.error, /Too many requests/);
+  });
+});
+
+describe('sales invoices', () => {
+  const customer = { name: 'Ganesh Landge', contact: '9860470406', email: 'G@Example.com' };
+  const IDS = { a: '90001', b: '90002', c: '90003' };
+  let seller; // a sales department user
+
+  beforeEach(async () => {
+    const users = conn.db.collection('users');
+    await users.deleteMany({ email: { $ne: config.adminEmail } });
+    await seed(conn.db, { ...config });
+    const { passwordHash } = await users.findOne({ email: 'manager@invenza.com' });
+    await users.insertOne({ email: 'sales@invenza.com', name: 'Sales Person', role: 'sales', status: 'active', passwordHash });
+    seller = await bearer('sales@invenza.com');
+    await conn.db.collection('bundles').insertMany([[IDS.a, 22.54, 10], [IDS.b, 26.8, 10], [IDS.c, 19.78, 16]].map(([bundleId, weight, pieces]) => ({
+      bundleId, barcode: bundleId, dieNo: 'AL-1001', pieces, weight, packed: '2026-10-14', status: 'Packed', rack: 'A', createdAt: new Date(),
+    })));
+  });
+
+  async function bearer(email) {
+    return { Authorization: `Bearer ${(await api.post('/api/auth/login').send({ email, password: 'demo-pass-1' })).body.token}` };
+  }
+  const create = (headers, bundleIds = [IDS.a, IDS.b], who = customer) => api.post('/api/sales/invoices').set(headers).send({ bundleIds, customer: who });
+  const bundle = id => conn.db.collection('bundles').findOne({ bundleId: id });
+  const lines = saleNo => conn.db.collection('sales').find({ invoiceNo: saleNo }).toArray();
+  const lookup = (id, headers = seller) => api.get(`/api/sales/lookup/${id}`).set(headers);
+
+  it('is only for admins and the sales department', async () => {
+    for (const email of ['manager@invenza.com', 'accountant@invenza.com']) {
+      const headers = await bearer(email);
+      for (const res of [await lookup(IDS.a, headers), await api.get('/api/sales/invoices').set(headers), await create(headers), await api.get('/api/sales').set(headers)]) {
+        assert.equal(res.status, 403, email);
+      }
+    }
+    assert.equal((await api.get('/api/sales/invoices').set(seller)).status, 200);
+    assert.equal((await api.get('/api/products').set(seller)).status, 403);
+    assert.deepEqual((await api.get('/api/auth/me').set(seller)).body.modules, ['sales']);
+    // the older single-bundle sale would skip approval
+    assert.equal((await api.post('/api/sales').set(seller).send({ bundleId: IDS.a, quantity: 1 })).status, 403);
+  });
+
+  it('gives all details of a bundle by its number, matching numbers in full only', async () => {
+    const res = await lookup(IDS.a);
+    assert.equal(res.status, 200);
+    assert.deepEqual([res.body.bundleId, res.body.dieNo, res.body.pcs, res.body.weight], [IDS.a, 'AL-1001', 10, 22.54]);
+    assert.ok(res.body.product);
+    assert.equal(res.body.amount, undefined);
+    assert.equal((await lookup('9000')).status, 404);
+    assert.equal((await api.get('/api/bundles/lookup/9000').set(auth)).status, 404);
+  });
+
+  it('waits for approval when the sales department creates it, with the bundles reserved', async () => {
+    const res = await create(seller);
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const inv = res.body;
+    assert.match(inv.saleNo, /^SALE-\d{6}$/);
+    assert.equal(inv.status, 'pending');
+    assert.deepEqual([inv.totals.bundles, inv.totals.pcs, inv.totals.weight], [2, 20, 49.34]);
+    assert.deepEqual(inv.customer, { ...customer, email: 'g@example.com' });
+    assert.equal((await bundle(IDS.a)).pieces, 10, 'stock is not taken before approval');
+    assert.equal((await lines(inv.saleNo)).length, 0);
+    assert.match((await lookup(IDS.a)).body.error, /waiting for approval/);
+    assert.equal((await create(seller, [IDS.c, IDS.a])).status, 409);
+    assert.equal((await bundle(IDS.c)).reservedBy, undefined, 'nothing stays reserved after a refusal');
+    assert.equal((await post('/api/sales', { bundleId: IDS.a, quantity: 1 })).status, 409);
+    assert.equal((await put(`/api/bundles/${IDS.a}`, { dieNo: 'AL-1001', pieces: 1, weight: 1, status: 'Packed' })).status, 409);
+
+    assert.equal((await api.post(`/api/sales/invoices/${inv.saleNo}/approve`).set(seller)).status, 403);
+    const ok = await post(`/api/sales/invoices/${inv.saleNo}/approve`);
+    assert.equal(ok.body.status, 'issued');
+    const sold = await bundle(IDS.a);
+    assert.deepEqual([sold.pieces, sold.weight, sold.status, sold.reservedBy], [0, 0, 'Sold', undefined]);
+    assert.equal((await lines(inv.saleNo)).length, 2);
+    assert.equal((await post(`/api/sales/invoices/${inv.saleNo}/approve`)).status, 409);
+    assert.equal((await post(`/api/sales/invoices/${inv.saleNo}/reject`)).status, 409);
+    assert.equal((await lines(inv.saleNo)).length, 2);
+    assert.match((await lookup(IDS.a)).body.error, /already sold/);
+  });
+
+  it('is issued at once when an admin creates it, and counts as one bill', async () => {
+    const billsToday = async () => (await get('/api/dashboard')).body.today.bills;
+    const before = await billsToday();
+    const res = await create(auth, [IDS.a, IDS.b, IDS.c]);
+    assert.equal(res.body.status, 'issued');
+    assert.equal((await bundle(IDS.c)).status, 'Sold');
+    assert.equal((await lines(res.body.saleNo)).length, 3);
+    assert.equal(await billsToday(), before + 1);
+    const next = await create(auth, [IDS.a]);
+    assert.equal(next.status, 409);
+  });
+
+  it('frees the bundles when it is rejected', async () => {
+    const { saleNo } = (await create(seller)).body;
+    assert.equal((await post(`/api/sales/invoices/${saleNo}/reject`)).body.status, 'rejected');
+    assert.equal((await lookup(IDS.a)).status, 200);
+    assert.equal((await post(`/api/sales/invoices/${saleNo}/approve`)).status, 409);
+    assert.equal((await post('/api/sales/invoices/SALE-999999/approve')).status, 404);
+  });
+
+  it('checks the bundle list and the customer details', async () => {
+    assert.equal((await create(seller, [])).status, 400);
+    assert.equal((await create(seller, [IDS.a, IDS.a])).status, 400);
+    assert.equal((await create(seller, ['nope-1'])).status, 404);
+    for (const who of [{ ...customer, name: '' }, { ...customer, contact: '' }, { ...customer, contact: '12ab' }, { ...customer, email: 'bad' }]) {
+      assert.equal((await create(seller, [IDS.a], who)).status, 400, JSON.stringify(who));
+    }
+    assert.equal((await create(seller, [IDS.a], { name: 'N', contact: '+91 98604 70406' })).status, 201);
+  });
+
+  it("saves a new customer once, and offers saved customers for suggestions", async () => {
+    const names = async () => (await api.get("/api/sales/customers").set(seller)).body;
+    const mine = async () => (await names()).filter(c => c.name.toLowerCase() === "ganesh landge");
+    assert.ok((await names()).some(c => c.contact), "saved customers are suggested");
+    assert.equal((await mine()).length, 0);
+
+    await create(seller, [IDS.a], { name: "Ganesh Landge", contact: "9860470406" });
+    assert.deepEqual(await mine(), [{ name: "Ganesh Landge", contact: "9860470406", email: "", city: "" }]);
+    // the same person, typed differently: no duplicate, and the email is filled in
+    await create(seller, [IDS.b], { name: "ganesh landge", contact: "+91 98604 70406", email: "g@example.com" });
+    assert.deepEqual((await mine()).map(c => [c.contact, c.email]), [["9860470406", "g@example.com"]]);
+    // the same name with another number is somebody else
+    await create(seller, [IDS.c], { name: "Ganesh Landge", contact: "9000000001" });
+    assert.equal((await mine()).length, 2);
+    const manager = await bearer("manager@invenza.com");
+    assert.equal((await api.get("/api/sales/customers").set(manager)).status, 403);
+  });
+
+  it('lets only one of two sales people take the same bundle', async () => {
+    const results = await Promise.all([create(seller, [IDS.a, IDS.b]), create(seller, [IDS.b, IDS.a])]);
+    const winners = results.filter(r => r.status === 201);
+    assert.ok(winners.length <= 1, 'never both');
+    const held = [(await bundle(IDS.a)).reservedBy, (await bundle(IDS.b)).reservedBy];
+    assert.deepEqual(held, winners.length ? [winners[0].body.saleNo, winners[0].body.saleNo] : [undefined, undefined]);
+  });
+});
+
+describe('changing racks', () => {
+  const ids = ['91001', '91002', '91003'];
+  beforeEach(async () => {
+    await conn.db.collection('bundles').insertMany(ids.map(bundleId => ({
+      bundleId, barcode: bundleId, dieNo: 'AL-1001', pieces: 10, weight: 30, packed: '2026-11-27', status: 'Packed', rack: 'Black', createdAt: new Date(),
+    })));
+  });
+  const racks = async () => (await conn.db.collection('bundles').find({ bundleId: { $in: ids } }).sort({ bundleId: 1 }).toArray()).map(b => [b.rack, b.pieces, b.weight]);
+
+  it('changes only the rack of the chosen bundles', async () => {
+    const res = await put('/api/bundles/rack', { bundleIds: ids.slice(0, 2), rack: ' Champagne ' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { rack: 'Champagne', updated: 2, held: [] });
+    assert.deepEqual(await racks(), [['Champagne', 10, 30], ['Champagne', 10, 30], ['Black', 10, 30]]);
+    assert.equal((await put('/api/bundles/rack', { bundleIds: [ids[2]], rack: '' })).body.rack, '—');
+  });
+
+  it('leaves bundles held by a waiting invoice, and says which', async () => {
+    await conn.db.collection('bundles').updateOne({ bundleId: ids[0] }, { $set: { reservedBy: 'SALE-000009' } });
+    const res = await put('/api/bundles/rack', { bundleIds: ids, rack: 'Gold' });
+    assert.deepEqual([res.body.updated, res.body.held], [2, [ids[0]]]);
+    assert.deepEqual((await racks()).map(r => r[0]), ['Black', 'Gold', 'Gold']);
+  });
+
+  it('checks the request and the role', async () => {
+    assert.equal((await put('/api/bundles/rack', { bundleIds: [], rack: 'Gold' })).status, 400);
+    assert.equal((await put('/api/bundles/rack', { bundleIds: [ids[0]], rack: 'x'.repeat(21) })).status, 400);
+    assert.equal((await put('/api/bundles/rack', { bundleIds: [ids[0], 'nope'], rack: 'Gold' })).status, 404);
+    assert.deepEqual((await racks()).map(r => r[0]), ['Black', 'Black', 'Black']);
+    const login = await api.post('/api/auth/login').send({ email: 'accountant@invenza.com', password: 'demo-pass-1' });
+    const res = await api.put('/api/bundles/rack').set({ Authorization: `Bearer ${login.body.token}` }).send({ bundleIds: ids, rack: 'Gold' });
+    assert.ok([401, 403].includes(res.status));
   });
 });
 

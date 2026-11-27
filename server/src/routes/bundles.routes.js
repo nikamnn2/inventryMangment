@@ -11,6 +11,8 @@ export default function bundleRoutes(ctx) {
   r.get('/lookup/:scan', wrap(c.lookup));
   r.get('/:bundleId', wrap(c.get));
   r.post('/', wrap(c.create));
+  /** Declared before /:bundleId so "rack" is not read as a bundle ID. */
+  r.put('/rack', wrap(c.setRack));
   r.put('/:bundleId', wrap(c.update));
   return r;
 }

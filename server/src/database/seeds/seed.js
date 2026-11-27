@@ -14,7 +14,7 @@ import { demoUsers } from './data/users.js';
 export async function seed(db, { reset = false, adminEmail, adminPassword, seedDemoUsers = false, demoPassword, seedDemoData = true } = {}) {
   await ensureIndexes(db);
   if (reset) {
-    await Promise.all([C.products, C.bundles, C.sales, C.customers, C.suppliers, C.counters, C.settings].map(c => db.collection(c).deleteMany({})));
+    await Promise.all([C.products, C.bundles, C.sales, C.invoices, C.customers, C.suppliers, C.counters, C.settings].map(c => db.collection(c).deleteMany({})));
   }
 
   const now = Date.now();

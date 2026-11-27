@@ -27,7 +27,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 /** Blocks a tab the user's role cannot open and sends them to the dashboard. */
 export const moduleGuard = (module: string): CanActivateFn => () => {
   if (!isPlatformBrowser(inject(PLATFORM_ID))) return true;
-  return inject(AuthService).can(module) ? true : inject(Router).createUrlTree(['/dashboard']);
+  const auth = inject(AuthService);
+  if (auth.can(module)) return true;
+  const home = auth.can('dashboard') ? 'dashboard' : auth.user()?.modules[0] ?? 'login';
+  return inject(Router).createUrlTree(['/' + home]);
 };
 
 /** Purpose: only signed-in users may open the app pages; others are sent to the login page. */

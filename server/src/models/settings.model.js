@@ -7,7 +7,7 @@ export const SETTINGS_ID = 'main';
 /** Used until an admin saves their own settings (company, low-stock limit, price per kg for each category). */
 export const DEFAULT_SETTINGS = {
   _id: SETTINGS_ID,
-  company: 'Sahyadri Aluminium & Glass',
+  company: 'Siddheshwar Aluminium & Glass',
   gstin: '',
   phone: '',
   lowStockLimit: 20,

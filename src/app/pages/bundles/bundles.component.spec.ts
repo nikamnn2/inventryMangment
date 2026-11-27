@@ -89,6 +89,81 @@ describe('BundlesComponent', () => {
     expect(c.error()).toBe('Bundle not found.');
   });
 
+  describe('rack', () => {
+    beforeEach(() => localStorage.clear());
+    afterEach(() => localStorage.clear());
+
+    it('keeps the last chosen rack for the next new bundle, until another is chosen', async () => {
+      const add = spyOn(data, 'addBundle').and.resolveTo({ ...BUNDLES[0], id: 'new' });
+      c.open();
+      expect(c.form.rack).toBe('');
+      c.form.rack = 'silver';
+      await submit();
+      expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ rack: 'Silver' }));
+      c.open();
+      expect(c.form.rack).toBe('Silver');
+      // editing an old bundle shows its own rack and does not change the choice for new ones
+      c.open(BUNDLES[0]);
+      expect(c.form.rack).toBe('A-01');
+      spyOn(data, 'updateBundle').and.resolveTo(null);
+      await submit();
+      c.open();
+      expect(c.form.rack).toBe('Silver');
+    });
+
+    it('adds a value typed under Other to the choices, and asks for it when left empty', async () => {
+      const add = spyOn(data, 'addBundle').and.callFake(async b => {
+        const saved = { ...b, id: 'new' };
+        data.bundles.update(l => [saved, ...l]);
+        return saved;
+      });
+      c.open();
+      c.rackOther = true;
+      c.form.rack = '  ';
+      await submit();
+      expect(c.error()).toContain('Type the new rack value');
+      expect(add).not.toHaveBeenCalled();
+      c.form.rack = 'Champagne';
+      await submit();
+      expect(c.racks().slice(0, 3)).toEqual(['Black', 'Silver', 'Gold']);
+      expect(c.racks().at(-1)).toBe('Champagne');
+    });
+
+    it('changes the rack of several selected bundles', async () => {
+      c.togglePick('b1');
+      c.togglePick('b2');
+      expect(c.pickedBundles().map((b: { id: string }) => b.id)).toEqual(['b1', 'b2']);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('2 selected');
+      const set = spyOn(data, 'setRack').and.resolveTo({ updated: 1, held: ['b2'] });
+      c.openRackDialog();
+      await c.changeRacks(new Event('submit'));
+      expect(c.rackError()).toBe('Choose the rack to set.');
+      c.bulkRack = 'gold';
+      await c.changeRacks(new Event('submit'));
+      expect(set).toHaveBeenCalledWith(['b1', 'b2'], 'Gold');
+      expect(c.rackDialog()).toBeFalse();
+      expect(c.pickedBundles()).toEqual([]);
+      expect(c.notice()).toContain('on 1 bundle.');
+      expect(c.notice()).toContain('b2');
+    });
+
+    it('selects all bundles found by the search, and keeps the selection when saving fails', async () => {
+      c.q.set('a-0');
+      c.pickAll();
+      expect(c.pickedBundles().map((b: { id: string }) => b.id)).toEqual(['b1', 'b3']);
+      expect(c.allPicked()).toBeTrue();
+      spyOn(data, 'setRack').and.resolveTo('Cannot reach the server.');
+      c.openRackDialog();
+      c.bulkRack = 'Black';
+      await c.changeRacks(new Event('submit'));
+      expect(c.rackError()).toBe('Cannot reach the server.');
+      expect(c.pickedBundles().length).toBe(2);
+      c.pickAll();
+      expect(c.pickedBundles()).toEqual([]);
+    });
+  });
+
   it('prints the label', () => {
     const print = spyOn(window, 'print');
     c.print();

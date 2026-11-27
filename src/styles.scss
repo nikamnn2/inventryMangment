@@ -155,6 +155,8 @@ input::placeholder { color: #4d5f75; opacity: 1; }
     height: auto !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; padding: 0 !important;
     border: 0 !important; overflow: visible !important; background: none !important; box-shadow: none !important;
     transform: none !important; animation: none !important; filter: none !important; backdrop-filter: none !important;
+    /* a centred dialog would otherwise shrink the sheet to the width of its text */
+    place-items: normal !important; place-content: normal !important; place-self: auto !important;
   }
   html:has(.sheet) { height: auto; background: #fff; }
   .sheet { width: 100%; padding: 24px; background: #fff; }

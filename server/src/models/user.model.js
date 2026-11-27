@@ -3,7 +3,7 @@ import { oneOf, str } from '../utils/index.js';
 import { HttpError } from '../utils/http-error.js';
 
 /** Roles that can be assigned to a member. */
-export const ROLES = ['admin', 'manager', 'accountant'];
+export const ROLES = ['admin', 'manager', 'accountant', 'sales'];
 
 /** Every tab (module) in the app. A module name is also what the API routes are guarded with. */
 export const MODULES = ['dashboard', 'products', 'bundles', 'sales', 'stock', 'customers', 'suppliers', 'reports', 'settings', 'members'];
@@ -12,12 +12,13 @@ export const MODULES = ['dashboard', 'products', 'bundles', 'sales', 'stock', 'c
  * Who can open which tab. This is the single place to change access: edit the lists below and the
  * API (403) and the Angular menu/routes (hidden/redirected) both follow. The manager and accountant
  * lists are a starting point until the access rules are decided. `members` (user registration)
- * is admin-only.
+ * is admin-only. Sales and invoices are only for admins and the sales department.
  */
 export const ROLE_MODULES = {
   admin: MODULES,
-  manager: ['dashboard', 'products', 'bundles', 'sales', 'stock', 'customers', 'suppliers', 'reports'],
-  accountant: ['dashboard', 'sales', 'stock', 'customers', 'suppliers', 'reports'],
+  manager: ['dashboard', 'products', 'bundles', 'stock', 'customers', 'suppliers', 'reports'],
+  accountant: ['dashboard', 'stock', 'customers', 'suppliers', 'reports'],
+  sales: ['sales'],
 };
 
 /** Sections the given role may open (empty for an unknown role). */

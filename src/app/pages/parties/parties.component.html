@@ -12,7 +12,8 @@
         <span class="badge" [class]="badgeClass(p.status)">{{ p.status }}</span>
       </div>
       <strong>{{ p.name }}</strong>
-      <div class="card-note">{{ p.city }} · {{ p.contact }}</div>
+      <div class="card-note">{{ p.city ? p.city + ' · ' : '' }}{{ p.contact }}</div>
+      @if (p.email) { <div class="card-note email">{{ p.email }}</div> }
       <div class="detail">{{ p.detail }}</div>
     </div>
   }

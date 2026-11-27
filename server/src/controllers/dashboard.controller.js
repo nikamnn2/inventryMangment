@@ -44,7 +44,7 @@ export function dashboardController({ db }) {
         lowStock: bundles.filter(b => b.pieces > 0 && b.pieces < limit).map(withAvg),
         today: {
           packed: bundles.filter(b => b.packed === isoDate()).length,
-          bills: recent.length,
+          bills: new Set(recent.map(s => s.invoiceNo ?? s.billNo)).size,
           revenue: recent.reduce((n, s) => n + s.amount, 0),
         },
         soldBundles: bundles.filter(b => b.pieces === 0 || b.status === 'Sold').length,

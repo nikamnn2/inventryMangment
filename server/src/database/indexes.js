@@ -10,5 +10,7 @@ export async function ensureIndexes(db) {
     db.collection(C.bundles).createIndex({ dieNo: 1 }),
     db.collection(C.sales).createIndex({ billNo: 1 }, { unique: true }),
     db.collection(C.sales).createIndex({ createdAt: -1 }),
+    db.collection(C.invoices).createIndex({ saleNo: 1 }, { unique: true }),
+    db.collection(C.invoices).createIndex({ createdAt: -1 }),
   ]);
 }

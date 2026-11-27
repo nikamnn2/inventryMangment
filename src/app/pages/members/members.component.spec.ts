@@ -39,7 +39,7 @@ describe('MembersComponent', () => {
 
   it('lets the super admin manage other admins but never the super admin row', () => {
     const { c } = setup('root@x.y', true);
-    expect(c.roles()).toEqual(['admin', 'manager', 'accountant']);
+    expect(c.roles()).toEqual(['admin', 'manager', 'accountant', 'sales']);
     expect(c.canManage(SUPER)).toBeFalse();
     expect(c.canManage(OTHER_ADMIN)).toBeTrue();
     expect(c.canDelete(OTHER_ADMIN)).toBeTrue();
@@ -48,7 +48,7 @@ describe('MembersComponent', () => {
 
   it('keeps a regular admin away from admin accounts and the admin role', () => {
     const { c } = setup('adm@x.y', false);
-    expect(c.roles()).toEqual(['manager', 'accountant']);
+    expect(c.roles()).toEqual(['manager', 'accountant', 'sales']);
     expect(c.canManage(OTHER_ADMIN)).toBeFalse();
     expect(c.canManage(STAFF)).toBeTrue();
     expect(c.canDelete(OTHER_ADMIN)).toBeFalse();

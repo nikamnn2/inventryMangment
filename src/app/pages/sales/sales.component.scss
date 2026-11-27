@@ -5,3 +5,27 @@
 .r-line span { color: var(--muted); }
 .r-line b { text-align: right; font-weight: 600; }
 .r-line.total { border-top: 1px solid var(--line); padding-top: 10px; font-size: 17px; }
+
+/* new sale: the add row, camera, totals and customer suggestions */
+.add-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.add-row .input { flex: 1 1 220px; }
+.camera { margin-top: 14px; max-width: 520px; }
+.card > .notice { margin-top: 12px; }
+.totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.totals div { padding: 10px 14px; border-radius: 12px; background: var(--surface-2); }
+.totals small { display: block; font-size: 13px; color: var(--muted); }
+.totals strong { font-size: 22px; }
+.combo { position: relative; }
+.suggestions { position: absolute; z-index: 15; left: 0; right: 0; top: 100%; margin: 4px 0 0; padding: 4px; list-style: none; max-height: 260px; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 40px -16px rgba(16, 32, 56, .35); }
+.suggestions li { display: grid; gap: 2px; padding: 9px 12px; border-radius: 9px; cursor: pointer; }
+.suggestions li.active, .suggestions li:hover { background: var(--accent-soft); }
+.suggestions small { color: var(--muted); font-size: 13.5px; overflow-wrap: anywhere; }
+.invoice-modal { max-width: 820px; }
+@media screen and (max-width: 600px) {
+  .add-row .btn { flex: 1 1 100%; justify-content: center; }
+  .totals { gap: 6px; }
+  .totals div { padding: 8px 10px; }
+  .totals strong { font-size: 17px; }
+  .invoice-modal { padding: 14px; }
+  .invoice-modal .form-actions { flex-wrap: wrap; }
+}

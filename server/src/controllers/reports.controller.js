@@ -27,7 +27,7 @@ export function reportsController({ db }) {
         totals: {
           revenue: sales.reduce((n, s) => n + s.amount, 0),
           weightSold: Math.round(sales.reduce((n, s) => n + s.weight, 0) * 100) / 100,
-          bills: sales.length,
+          bills: new Set(sales.map(s => s.invoiceNo ?? s.billNo)).size,
           bundlesPacked: packing.length,
         },
         sales,

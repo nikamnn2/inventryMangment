@@ -1,0 +1,45 @@
+<!-- Purpose: A4 sales invoice: heading, sale number and date, customer, bundles grouped by product with subtotals, grand total. -->
+@if (invoice(); as inv) {
+  <article class="invoice" [class.sheet]="inv.status === 'issued'">
+    <h1>SALES INVOICE</h1>
+    <p class="company">{{ inv.company }}</p>
+    @if (inv.status !== 'issued') {
+      <p class="draft">{{ inv.status === 'rejected' ? 'REJECTED' : 'WAITING FOR ADMIN APPROVAL' }} · not an invoice</p>
+    }
+    <hr />
+    <div class="meta">
+      <strong>Sale Number: {{ inv.saleNo }}</strong>
+      <span>Date: {{ inv.issuedAt ?? inv.createdAt | date: 'MMM d, y, hh:mm a' }}</span>
+    </div>
+    <section class="customer">
+      <strong>Customer Details:</strong>
+      <div>Name: {{ inv.customer.name }}</div>
+      <div>Contact: {{ inv.customer.contact }}</div>
+      @if (inv.customer.email) { <div>Email: {{ inv.customer.email }}</div> }
+    </section>
+    <hr />
+
+    <h2>Bundle Details:</h2>
+    @for (g of groups(); track g.product + g.dieNo) {
+      <section class="group">
+        <div class="group-head">
+          <strong>{{ g.product }} (Die: {{ g.dieNo || '-' }})</strong>
+          <strong class="count">{{ g.items.length }} {{ g.items.length === 1 ? 'bundle' : 'bundles' }}</strong>
+        </div>
+        <ul>
+          @for (i of g.items; track i.bundleId) {
+            <li>Bundle {{ i.bundleId }}: {{ i.weight | number: '1.0-2' }} Kg, {{ i.pcs }} PCS</li>
+          }
+        </ul>
+        <div class="subtotal">Subtotal: {{ g.weight | number: '1.2-2' }} Kg, {{ g.pcs }} PCS</div>
+      </section>
+    }
+
+    <hr />
+    <div class="grand">
+      <div><div>GRAND TOTAL:</div><div>Total PCS: {{ inv.totals.pcs }}</div></div>
+      <div class="right"><div>{{ inv.totals.weight | number: '1.2-2' }} Kg</div><div>Total Bundles: {{ inv.totals.bundles }}</div></div>
+    </div>
+    <p class="thanks">Thank you for your business!</p>
+  </article>
+}

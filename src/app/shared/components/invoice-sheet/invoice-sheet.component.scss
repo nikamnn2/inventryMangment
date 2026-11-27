@@ -1,0 +1,31 @@
+/* Purpose: the invoice on screen, and printed on A4 (the same from a desktop or a phone). */
+:host { display: block; }
+.invoice { background: #fff; color: #111; font-family: Arimo, Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.4; text-align: left; }
+h1 { margin: 6px 0 12px; text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .3px; }
+.company { margin: 0 0 18px; text-align: center; font-size: 13.5px; }
+.draft { margin: 0 0 12px; padding: 8px; text-align: center; font-weight: 700; color: #8a5300; border: 1px dashed #b87722; }
+hr { border: 0; border-top: 1px solid #555; margin: 12px 0; }
+.meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; }
+.customer { margin-top: 14px; display: grid; gap: 4px; overflow-wrap: anywhere; }
+h2 { margin: 0 0 10px; font-size: 16px; }
+.group { margin-bottom: 14px; }
+.group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.group-head > strong:first-child { overflow-wrap: anywhere; }
+.count { flex: none; font-size: 13.5px; }
+ul { list-style: none; margin: 8px 0 0; padding: 0 0 0 22px; font-size: 14px; }
+.subtotal { padding-left: 16px; font-weight: 700; font-size: 14px; }
+.grand { display: flex; justify-content: space-between; gap: 16px; font-size: 16px; font-weight: 700; line-height: 1.7; }
+.grand .right { text-align: right; }
+.thanks { margin: 40px 0 4px; text-align: center; font-size: 13px; }
+
+@page invoice { size: A4; margin: 14mm 16mm; }
+@media print {
+  .invoice { page: invoice; padding: 0; font-size: 11pt; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  h1 { font-size: 17pt; }
+  .company, .count, ul, .subtotal, .thanks { font-size: 10pt; }
+  h2, .grand { font-size: 12pt; }
+  /* keep lines and totals whole when a long invoice runs onto the next page */
+  li, .subtotal, .grand, .meta, .customer { break-inside: avoid; }
+  .group-head { break-after: avoid; }
+  .thanks { margin-top: 28mm; }
+}

@@ -1,66 +1,148 @@
-<!-- Purpose: Sales page with two tabs: record a new sale (with bill preview) and browse the sales history. -->
+<!-- Purpose: Sales page: "New sale" (add bundles, customer, create invoice) and "Invoices" (view, print, approve). -->
 <div class="page-head">
-  <div><h1>Sales</h1><p>Deduct stock from a bundle and create a bill.</p></div>
+  <div><h1>Sales</h1><p>Add bundles by number{{ mobile ? ' or camera' : '' }}, then create the customer's invoice.</p></div>
   <div class="chips" role="tablist">
     <button type="button" class="chip" role="tab" [class.active]="tab() === 'new'" (click)="tab.set('new')">New sale</button>
-    <button type="button" class="chip" role="tab" [class.active]="tab() === 'history'" (click)="tab.set('history')">Sales history</button>
+    <button type="button" class="chip" role="tab" [class.active]="tab() === 'invoices'" (click)="tab.set('invoices')">
+      Invoices @if (waiting()) { <span class="badge warn">{{ waiting() }} waiting</span> }
+    </button>
   </div>
 </div>
 
 @if (tab() === 'new') {
-  <div class="grid cols-2-1">
-    <!-- Record-a-sale form: scan or pick a bundle, quantity, customer. -->
-    <form class="card" (submit)="submit($event)">
-      <div class="card-head"><div><div class="card-title">Record a sale</div><div class="card-note">Quantities above available stock are rejected</div></div></div>
-      <div class="form-grid">
-        <div class="field wide">
-          <label>Scan bundle barcode</label>
-          <div class="row" style="flex-wrap:nowrap">
-            <input class="input" type="search" name="scan" aria-label="Scan or type a bundle ID, then press Enter" placeholder="Scan bundle ID" [ngModel]="scan()" (ngModelChange)="scan.set($event)" (keydown.enter)="find($event)" />
-            <button class="btn" type="button" (click)="find($event)">Find</button>
-          </div>
-        </div>
-        <div class="field wide">
-          <label>Bundle *</label>
-          <select class="input" name="bundle" [ngModel]="bundleId()" (ngModelChange)="bundleId.set($event)">
-            @for (b of available(); track b.id) {
-              <option [value]="b.id">{{ b.id }} · {{ data.productName(b.code) }} · {{ b.pieces }} pcs</option>
-            }
-          </select>
-        </div>
-        <div class="field"><label>Quantity to sell (pcs) *</label><input class="input" type="number" min="1" name="qty" [ngModel]="qty()" (ngModelChange)="qty.set($event)" /></div>
-        <div class="field"><label>Customer</label><input class="input" name="customer" [ngModel]="customer()" (ngModelChange)="customer.set($event)" placeholder="Walk-in customer" /></div>
-        <div class="field"><label>Available now</label><input class="input" readonly [value]="(current()?.pieces ?? 0) + ' pcs'" /></div>
-        <div class="field"><label>Stock after sale</label><input class="input" readonly [value]="remaining()" /></div>
-      </div>
-      @if (error()) { <div class="notice err" style="margin-top:14px">{{ error() }}</div> }
-      <div class="form-actions"><button class="btn primary" type="submit" [disabled]="!available().length"><app-icon name="receipt" [size]="16" /> Record sale &amp; create bill</button></div>
-    </form>
-
-    <div class="card">
-      <div class="card-head"><div><div class="card-title">Bill preview</div><div class="card-note">Appears after a successful sale</div></div><span class="tag">{{ bill() ? 'ISSUED' : 'PREVIEW' }}</span></div>
-      <div class="sheet"><ng-container *ngTemplateOutlet="receipt; context: { $implicit: bill() }" /></div>
-      @if (bill()) { <div class="form-actions"><button class="btn" type="button" (click)="print()">Print bill</button></div> }
-    </div>
-  </div>
-} @else {
   <div class="card">
-    <div class="card-head"><div><div class="card-title">Sales history</div><div class="card-note">All saved bills · read only</div></div><span class="tag">{{ data.sales().length }} bills</span></div>
+    <div class="card-head"><div><div class="card-title">1. Add bundles</div><div class="card-note">Type the bundle number and press Enter{{ mobile ? ', or scan the label' : ' (a barcode scanner works too)' }}</div></div></div>
+    <form class="add-row" (submit)="$event.preventDefault(); add(code())">
+      <input class="input" type="search" name="bundle-code" aria-label="Bundle number" placeholder="Bundle number" autocomplete="off" autocapitalize="off" enterkeyhint="done" [value]="code()" (input)="code.set($any($event.target).value)" />
+      <button class="btn primary" type="submit"><app-icon name="plus" [size]="16" /> Add</button>
+      @if (mobile && !scanning()) { <button class="btn scan-button" type="button" (click)="scanning.set(true)"><app-icon name="layers" [size]="16" /> Scan barcode</button> }
+    </form>
+    @if (scanning()) { <app-camera-scanner class="camera" (scanned)="add($event)" (closed)="scanning.set(false)" /> }
+    @if (error()) { <div class="notice err" role="alert">{{ error() }}</div> }
+    @if (notice()) { <div class="notice ok" role="status">{{ notice() }}</div> }
+
+    <div class="totals" aria-live="polite">
+      <div><small>Bundles</small><strong>{{ totals().bundles }}</strong></div>
+      <div><small>Total PCS</small><strong>{{ totals().pcs }}</strong></div>
+      <div><small>Total weight</small><strong>{{ totals().weight | number: '1.2-2' }} kg</strong></div>
+    </div>
+
     <div class="table-wrap">
       <table class="tbl stack">
-        <thead><tr><th>Bill</th><th>Date &amp; time</th><th>Customer</th><th>Product</th><th class="right">Pcs</th><th class="right">Weight</th><th class="right">Amount</th><th></th></tr></thead>
+        <thead><tr><th>Bundle No</th><th>Product</th><th>Die No</th><th>Size</th><th class="right">Pieces</th><th class="right">Weight</th><th></th></tr></thead>
         <tbody>
-          @for (s of history.rows(); track s.id) {
+          @for (i of itemPager.rows(); track i.bundleId) {
             <tr>
-              <td class="mono" data-label="Bill">{{ s.id }}</td><td data-label="Date & time">{{ s.date }}</td><td data-label="Customer">{{ s.customer }}</td><td data-label="Product"><strong>{{ s.product }}</strong></td>
-              <td class="right" data-label="Pcs">{{ s.pcs }}</td><td class="right" data-label="Weight">{{ s.weight | number: '1.1-2' }} kg</td><td class="right" data-label="Amount">₹ {{ s.amount | number }}</td>
-              <td class="right"><button class="btn sm" type="button" (click)="detail.set(s)">View</button></td>
+              <td class="mono" data-label="Bundle No">{{ i.bundleId }}</td>
+              <td data-label="Product"><strong>{{ i.product }}</strong></td>
+              <td data-label="Die No">{{ i.dieNo || '-' }}</td>
+              <td data-label="Size">{{ i.size || '-' }}</td>
+              <td class="right" data-label="Pieces">{{ i.pcs }}</td>
+              <td class="right" data-label="Weight">{{ i.weight | number: '1.2-2' }} kg</td>
+              <td class="right"><button class="btn sm danger-text" type="button" (click)="remove(i.bundleId)" [attr.aria-label]="'Remove bundle ' + i.bundleId">Remove</button></td>
             </tr>
-          }
+          } @empty { <tr><td colspan="7" class="muted">No bundles yet. Add the first one above.</td></tr> }
         </tbody>
       </table>
     </div>
-    <app-pager [pager]="history" />
+    <app-pager [pager]="itemPager" />
+  </div>
+
+  <form class="card mt" novalidate (submit)="create($event)">
+    <div class="card-head">
+      <div><div class="card-title">2. Customer</div><div class="card-note">Choose a saved customer, or type a new one. New customers are saved automatically.</div></div>
+      @if (customerStatus(); as status) { <span class="tag">{{ status }}</span> }
+    </div>
+    <div class="form-grid">
+      <div class="field wide combo">
+        <label for="customer-name">Customer name *</label>
+        <input class="input" id="customer-name" name="customer-name" autocomplete="off" placeholder="Start typing a name or number" role="combobox" aria-autocomplete="list" aria-controls="customer-list" [attr.aria-expanded]="listOpen() && suggestions().length > 0"
+               [value]="customer().name" (input)="typeName($any($event.target).value)" (focus)="listOpen.set(true)" (blur)="listOpen.set(false)" (keydown)="nameKey($event)" />
+        @if (listOpen() && suggestions().length) {
+          <ul class="suggestions" id="customer-list" role="listbox">
+            @for (c of suggestions(); track $index) {
+              <!-- mousedown keeps the focus in the name box, so the list is still there for the click -->
+              <li role="option" [class.active]="$index === highlighted()" [attr.aria-selected]="$index === highlighted()" (mousedown)="$event.preventDefault()" (click)="choose(c)">
+                <strong>{{ c.name }}</strong><small>{{ c.contact || 'no number' }}{{ c.email ? ' · ' + c.email : '' }}{{ c.city ? ' · ' + c.city : '' }}</small>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+      <div class="field"><label for="customer-contact">Contact number *</label><input class="input" id="customer-contact" type="tel" inputmode="tel" autocomplete="off" placeholder="98xxxxxxxx" [value]="customer().contact" (input)="setField('contact', $any($event.target).value)" /></div>
+      <div class="field"><label for="customer-email">Email</label><input class="input" id="customer-email" type="email" inputmode="email" autocomplete="off" autocapitalize="off" placeholder="Optional" [value]="customer().email" (input)="setField('email', $any($event.target).value)" /></div>
+    </div>
+    @if (formError()) { <div class="notice err" role="alert" style="margin-top:14px">{{ formError() }}</div> }
+    @if (!isAdmin()) { <p class="card-note" style="margin-top:12px">An admin has to approve before the invoice is created. The bundles are held for you until then.</p> }
+    <div class="form-actions">
+      <button class="btn" type="button" (click)="clearSale()" [disabled]="!items().length && !customer().name">Clear</button>
+      <button class="btn primary" type="submit" [disabled]="saving() || !items().length"><app-icon name="receipt" [size]="16" /> {{ saving() ? 'Please wait…' : isAdmin() ? 'Create invoice' : 'Send for approval' }}</button>
+    </div>
+  </form>
+} @else {
+  @if (listError()) { <div class="notice err" role="alert" style="margin-bottom:16px">{{ listError() }}</div> }
+  @if (notice()) { <div class="notice ok" role="status" style="margin-bottom:16px">{{ notice() }}</div> }
+  <div class="card">
+    <div class="card-head"><div><div class="card-title">Invoices</div><div class="card-note">{{ isAdmin() ? 'Open a waiting invoice to approve or reject it' : 'An invoice can be printed once an admin approves it' }}</div></div><span class="tag">{{ invoices().length }} invoices</span></div>
+    <div class="table-wrap">
+      <table class="tbl stack">
+        <thead><tr><th>Sale No</th><th>Date &amp; time</th><th>Customer</th><th>Created by</th><th class="right">Bundles</th><th class="right">PCS</th><th class="right">Weight</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          @for (inv of invoicePager.rows(); track inv.saleNo) {
+            <tr>
+              <td class="mono" data-label="Sale No">{{ inv.saleNo }}</td>
+              <td data-label="Date & time">{{ inv.issuedAt ?? inv.createdAt | date: 'dd MMM y, hh:mm a' }}</td>
+              <td data-label="Customer"><strong>{{ inv.customer.name }}</strong></td>
+              <td data-label="Created by">{{ inv.createdByName || '-' }}</td>
+              <td class="right" data-label="Bundles">{{ inv.totals.bundles }}</td>
+              <td class="right" data-label="PCS">{{ inv.totals.pcs }}</td>
+              <td class="right" data-label="Weight">{{ inv.totals.weight | number: '1.2-2' }} kg</td>
+              <td data-label="Status"><span class="badge" [class]="inv.status === 'issued' ? 'ok' : inv.status === 'rejected' ? 'danger' : 'warn'">{{ statusLabel(inv.status) }}</span></td>
+              <td class="right"><button class="btn sm" type="button" (click)="viewing.set(inv)">{{ inv.status === 'pending' && isAdmin() ? 'Review' : 'View' }}</button></td>
+            </tr>
+          } @empty { <tr><td colspan="9" class="muted">No invoices yet.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+    <app-pager [pager]="invoicePager" />
+  </div>
+
+  @if (oldBills().length) {
+    <div class="card mt">
+      <div class="card-head"><div><div class="card-title">Earlier bills</div><div class="card-note">Made before invoices · read only</div></div><span class="tag">{{ oldBills().length }} bills</span></div>
+      <div class="table-wrap">
+        <table class="tbl stack">
+          <thead><tr><th>Bill</th><th>Date &amp; time</th><th>Customer</th><th>Product</th><th class="right">Pcs</th><th class="right">Weight</th><th></th></tr></thead>
+          <tbody>
+            @for (s of oldPager.rows(); track s.id) {
+              <tr>
+                <td class="mono" data-label="Bill">{{ s.id }}</td><td data-label="Date & time">{{ s.date }}</td><td data-label="Customer">{{ s.customer }}</td><td data-label="Product"><strong>{{ s.product }}</strong></td>
+                <td class="right" data-label="Pcs">{{ s.pcs }}</td><td class="right" data-label="Weight">{{ s.weight | number: '1.1-2' }} kg</td>
+                <td class="right"><button class="btn sm" type="button" (click)="detail.set(s)">View</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-pager [pager]="oldPager" />
+    </div>
+  }
+}
+
+<!-- One invoice: view, print (A4) when issued, approve or reject while waiting. -->
+@if (viewing(); as inv) {
+  <div class="modal-scrim" (click)="viewing.set(null)">
+    <div class="modal invoice-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="'Invoice ' + inv.saleNo">
+      <app-invoice-sheet [invoice]="inv" />
+      <div class="form-actions no-print">
+        <button class="btn" type="button" (click)="viewing.set(null)">Close</button>
+        @if (inv.status === 'pending' && isAdmin()) {
+          <button class="btn danger-text" type="button" [disabled]="deciding()" (click)="decide(inv, 'reject')">Reject</button>
+          <button class="btn primary" type="button" [disabled]="deciding()" (click)="decide(inv, 'approve')">Approve &amp; create invoice</button>
+        }
+        @if (inv.status === 'issued') { <button class="btn primary" type="button" (click)="print()"><app-icon name="print" [size]="16" /> Print invoice (A4)</button> }
+      </div>
+    </div>
   </div>
 }
 
@@ -73,17 +155,17 @@
   </div>
 }
 
-<!-- Bill layout reused by the preview and the history detail dialog. -->
+<!-- Layout of an earlier single-bundle bill. -->
 <ng-template #receipt let-s>
   <div class="receipt">
     <div class="r-head">SALES RECEIPT</div>
-    <div class="r-line"><span>Bill no.</span><b>{{ s?.id ?? '—' }}</b></div>
-    <div class="r-line"><span>Date &amp; time</span><b>{{ s?.date ?? 'After sale' }}</b></div>
-    <div class="r-line"><span>Customer</span><b>{{ s?.customer ?? '—' }}</b></div>
-    <div class="r-line"><span>Product</span><b>{{ s?.product ?? '—' }}</b></div>
-    <div class="r-line"><span>Bundle ID</span><b class="mono">{{ s?.bundleId ?? '—' }}</b></div>
-    <div class="r-line"><span>Pieces sold</span><b>{{ s ? s.pcs : '—' }}</b></div>
-    <div class="r-line"><span>Weight sold</span><b>{{ s ? (s.weight | number: '1.2-2') + ' kg' : '—' }}</b></div>
-    <div class="r-line total"><span>Amount</span><b>{{ s ? '₹ ' + (s.amount | number) : '—' }}</b></div>
+    <div class="r-line"><span>Bill no.</span><b>{{ s.id }}</b></div>
+    <div class="r-line"><span>Date &amp; time</span><b>{{ s.date }}</b></div>
+    <div class="r-line"><span>Customer</span><b>{{ s.customer }}</b></div>
+    <div class="r-line"><span>Product</span><b>{{ s.product }}</b></div>
+    <div class="r-line"><span>Bundle ID</span><b class="mono">{{ s.bundleId }}</b></div>
+    <div class="r-line"><span>Pieces sold</span><b>{{ s.pcs }}</b></div>
+    <div class="r-line"><span>Weight sold</span><b>{{ s.weight | number: '1.2-2' }} kg</b></div>
+    <div class="r-line total"><span>Amount</span><b>₹ {{ s.amount | number }}</b></div>
   </div>
 </ng-template>
