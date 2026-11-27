@@ -1,12 +1,11 @@
 name: Deploy to Hostinger
 
-# Runs on every push to main (and from the Actions tab with "Run workflow").
+# Manual only: start it from the Actions tab with "Run workflow". The app is deployed with Hostinger's
+# GitHub deployment instead (DEPLOYMENT.md). To use FTP again, add a push trigger for main below.
 # Order: check settings -> tests -> API -> website. Nothing is uploaded if an earlier step fails.
 # Uploads over FTPS. The API's environment variables are set in the Hostinger Node.js panel and are
 # never uploaded from here. Setup steps: DEPLOYMENT.md
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 # One deployment at a time. A running upload is never cancelled halfway.

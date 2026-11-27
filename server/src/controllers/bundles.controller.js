@@ -69,6 +69,27 @@ export function bundlesController({ db }) {
       res.json({ rack, updated: result.matchedCount, held: found.filter(b => b.reservedBy).map(b => b.bundleId) });
     },
 
+    /**
+     * Admin only: removes a bundle for good. One that is on a sale, or held by a waiting invoice, is kept,
+     * so sales records never point at a bundle that is gone. Its number is not given out again.
+     */
+    async remove(req, res) {
+      if (req.user.role !== 'admin') throw new HttpError(403, 'Only an admin can delete bundles.');
+      const { bundleId } = req.params;
+      const current = await bundles.findOne({ bundleId });
+      if (!current) throw new HttpError(404, 'Bundle not found.');
+      if (current.reservedBy) throw new HttpError(409, `This bundle is on ${current.reservedBy}, which is waiting for approval. Reject or delete that invoice first.`);
+      const sale = await db.collection(C.sales).findOne({ bundleId });
+      if (sale) {
+        const where = sale.invoiceNo ?? sale.billNo;
+        throw new HttpError(409, sale.invoiceNo ? `This bundle was sold on ${where}. Delete that invoice first.` : `This bundle was sold on bill ${where}, so it cannot be deleted.`);
+      }
+      // only if nobody has sold or reserved it since it was read
+      const result = await bundles.deleteOne({ _id: current._id, pieces: current.pieces, reservedBy: { $exists: false } });
+      if (!result.deletedCount) throw new HttpError(409, 'This bundle has just changed. Reload and try again.');
+      res.status(204).end();
+    },
+
     /** Edits a bundle (pieces, weight, rack, status...). */
     async update(req, res) {
       const data = await parseBundle(req.body, products, { creating: false });

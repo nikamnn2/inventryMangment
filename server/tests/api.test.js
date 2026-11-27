@@ -1015,6 +1015,107 @@ describe('sales invoices', () => {
     assert.equal((await api.get('/api/sales/search?q=zebra').set(manager)).status, 403);
   });
 
+  describe('deleting', () => {
+    const del = (url, headers = auth) => api.delete(url).set(headers);
+    const delInvoice = (saleNo, headers) => del(`/api/sales/invoices/${saleNo}`, headers);
+    const invoiceNos = async () => (await get('/api/sales/invoices')).body.map(i => i.saleNo);
+
+    it('removes an issued invoice, puts its bundles back as they were, and drops its sales', async () => {
+      await conn.db.collection('bundles').updateOne({ bundleId: IDS.b }, { $set: { status: 'Shipped' } });
+      const { saleNo } = (await create(auth)).body;
+      const res = await delInvoice(saleNo);
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body, { deleted: saleNo, restocked: 2, notRestored: [], numberReused: true });
+      assert.deepEqual([(await bundle(IDS.a)).pieces, (await bundle(IDS.a)).weight, (await bundle(IDS.a)).status], [10, 22.54, 'Packed']);
+      assert.equal((await bundle(IDS.b)).status, 'Shipped');
+      assert.equal((await lines(saleNo)).length, 0);
+      assert.ok(!(await invoiceNos()).includes(saleNo));
+      assert.equal((await create(auth)).body.saleNo, saleNo, 'the newest number is used again');
+      assert.equal((await delInvoice('SALE-999999')).status, 404);
+    });
+
+    it('keeps the numbers of other invoices when an older one is deleted', async () => {
+      const first = (await create(auth, [IDS.a])).body.saleNo;
+      const second = (await create(auth, [IDS.b])).body.saleNo;
+      const res = await delInvoice(first);
+      assert.equal(res.body.numberReused, false);
+      assert.deepEqual((await invoiceNos()).filter(n => n === first || n === second), [second]);
+      const next = (await create(auth, [IDS.c])).body.saleNo;
+      assert.ok(next > second, 'no number is handed out twice');
+    });
+
+    it('frees the bundles of a waiting invoice and removes a rejected one', async () => {
+      const waiting = (await create(seller, [IDS.a])).body.saleNo;
+      assert.deepEqual((await delInvoice(waiting)).body.restocked, 0);
+      assert.equal((await bundle(IDS.a)).reservedBy, undefined);
+      const rejected = (await create(seller, [IDS.a])).body.saleNo;
+      await post(`/api/sales/invoices/${rejected}/reject`);
+      assert.equal((await delInvoice(rejected)).status, 200);
+    });
+
+    it('lets a sales user cancel only their own invoice, and only while it waits', async () => {
+      const mine = (await create(seller, [IDS.a])).body.saleNo;
+      const cancelled = await delInvoice(mine, seller);
+      assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+      assert.deepEqual([cancelled.body.restocked, cancelled.body.numberReused], [0, true]);
+      assert.equal((await bundle(IDS.a)).reservedBy, undefined);
+      assert.equal((await bundle(IDS.a)).pieces, 10);
+
+      const admins = (await create(auth, [IDS.a])).body.saleNo;
+      const notMine = await delInvoice(admins, seller);
+      assert.equal(notMine.status, 403);
+      assert.match(notMine.body.error, /only your own/);
+
+      const approved = (await create(seller, [IDS.b])).body.saleNo;
+      await post(`/api/sales/invoices/${approved}/approve`);
+      const tooLate = await delInvoice(approved, seller);
+      assert.equal(tooLate.status, 403);
+      assert.match(tooLate.body.error, /already decided/);
+      assert.equal((await bundle(IDS.b)).status, 'Sold');
+      assert.ok((await invoiceNos()).includes(approved));
+    });
+
+    it('restores a bundle that had an earlier bill, but not one sold again later', async () => {
+      const bill = (billNo, createdAt) => conn.db.collection('sales').insertOne({ billNo, bundleId: IDS.a, pcs: 1, weight: 1, customer: 'Old', amount: 1, createdAt });
+      await bill('INV-EARLIER', new Date(Date.now() - 86400000));
+      const first = (await create(auth, [IDS.a])).body.saleNo;
+      assert.deepEqual((await delInvoice(first)).body.notRestored, []);
+      assert.equal((await bundle(IDS.a)).pieces, 10);
+      const second = (await create(auth, [IDS.a])).body.saleNo;
+      await bill('INV-LATER', new Date(Date.now() + 60000));
+      assert.deepEqual((await delInvoice(second)).body.notRestored, [IDS.a]);
+      assert.equal((await bundle(IDS.a)).pieces, 0);
+      await conn.db.collection('sales').deleteMany({ billNo: { $in: ['INV-EARLIER', 'INV-LATER'] } });
+    });
+
+    it('does not overwrite a bundle that changed after the sale, and says which', async () => {
+      const { saleNo } = (await create(auth)).body;
+      await conn.db.collection('bundles').updateOne({ bundleId: IDS.a }, { $set: { pieces: 3, weight: 5, status: 'Packed' } });
+      const res = await delInvoice(saleNo);
+      assert.deepEqual([res.body.restocked, res.body.notRestored], [1, [IDS.a]]);
+      assert.equal((await bundle(IDS.a)).pieces, 3);
+    });
+
+    it('deletes a bundle only when it has no sale and no waiting invoice', async () => {
+      const url = id => `/api/bundles/${id}`;
+      const waiting = (await create(seller, [IDS.a])).body.saleNo;
+      assert.match((await del(url(IDS.a))).body.error, /waiting for approval/);
+      await delInvoice(waiting);
+      const sold = (await create(auth, [IDS.b])).body.saleNo;
+      const refused = await del(url(IDS.b));
+      assert.equal(refused.status, 409);
+      assert.ok(refused.body.error.includes(sold));
+      assert.equal((await del(url(IDS.c), await bearer('manager@invenza.com'))).status, 403);
+      assert.equal((await del(url(IDS.a))).status, 204);
+      assert.equal(await bundle(IDS.a), null);
+      assert.equal((await del(url(IDS.a))).status, 404);
+      assert.equal((await get(url(IDS.a))).status, 404);
+      // once its invoice is deleted, the sold bundle can go too
+      await delInvoice(sold);
+      assert.equal((await del(url(IDS.b))).status, 204);
+    });
+  });
+
   it('lets only one of two sales people take the same bundle', async () => {
     const results = await Promise.all([create(seller, [IDS.a, IDS.b]), create(seller, [IDS.b, IDS.a])]);
     const winners = results.filter(r => r.status === 201);

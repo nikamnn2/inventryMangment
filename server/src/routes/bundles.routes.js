@@ -14,5 +14,6 @@ export default function bundleRoutes(ctx) {
   /** Declared before /:bundleId so "rack" is not read as a bundle ID. */
   r.put('/rack', wrap(c.setRack));
   r.put('/:bundleId', wrap(c.update));
+  r.delete('/:bundleId', wrap(c.remove));
   return r;
 }

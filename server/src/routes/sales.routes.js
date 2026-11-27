@@ -15,6 +15,7 @@ export default function saleRoutes(ctx) {
   r.get('/invoices', wrap(invoices.list));
   r.get('/invoices/:saleNo/pdf', wrap(invoices.pdf));
   r.get('/invoices/:saleNo', wrap(invoices.get));
+  r.delete('/invoices/:saleNo', wrap(invoices.remove));
   r.post('/invoices', wrap(invoices.create));
   r.post('/invoices/:saleNo/approve', wrap(invoices.approve));
   r.post('/invoices/:saleNo/reject', wrap(invoices.reject));

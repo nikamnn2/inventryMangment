@@ -189,17 +189,17 @@ describe('SalesComponent', () => {
     it('asks for the customer name and number before creating', async () => {
         await setup();
         const create = vi.spyOn(api, 'create');
-        await c.create(new Event('submit'));
+        c.review(new Event('submit'));
         expect(c.formError()).toBe('Add at least one bundle.');
         c.items.set([LINE('1')]);
-        await c.create(new Event('submit'));
+        c.review(new Event('submit'));
         expect(c.formError()).toBe('Enter the customer name.');
         c.setField('name', 'N');
-        await c.create(new Event('submit'));
+        c.review(new Event('submit'));
         expect(c.formError()).toBe('Enter a valid contact number.');
         c.setField('contact', '9860470406');
         c.setField('email', 'bad');
-        await c.create(new Event('submit'));
+        c.review(new Event('submit'));
         expect(c.formError()).toBe('Enter a valid email address.');
         expect(create).not.toHaveBeenCalled();
     });
@@ -210,7 +210,8 @@ describe('SalesComponent', () => {
         c.items.set([LINE('2'), LINE('1')]);
         c.customer.set({ name: ' Ganesh Landge ', contact: '9860470406', email: '' });
         expect(text()).toContain('Create invoice');
-        await c.create(new Event('submit'));
+        c.review(new Event('submit'));
+        await c.create();
         expect(create).toHaveBeenCalledWith(['1', '2'], { name: 'Ganesh Landge', contact: '9860470406', email: '' });
         expect(c.items()).toEqual([]);
         expect(text()).toContain('SALES INVOICE');
@@ -228,7 +229,8 @@ describe('SalesComponent', () => {
         c.items.set([LINE('1')]);
         c.customer.set({ name: 'N', contact: '9860470406', email: '' });
         expect(text()).toContain('Send for approval');
-        await c.create(new Event('submit'));
+        c.review(new Event('submit'));
+        await c.create();
         expect(c.viewing()).toBeNull();
         expect(c.notice()).toContain('sent to an admin');
         c.viewing.set({ ...INVOICE, status: 'pending' });
@@ -238,12 +240,49 @@ describe('SalesComponent', () => {
         expect(fixture.nativeElement.querySelector('.invoice.sheet')).toBeNull();
     });
 
+    it('saves nothing until the invoice has been checked and confirmed', async () => {
+        await setup('admin');
+        const create = vi.spyOn(api, 'create').mockResolvedValue(INVOICE);
+        c.items.set([LINE('222', 16, 19.78), LINE('111')]);
+        c.customer.set({ name: 'Ravi Traders', contact: '9860470406', email: '' });
+        c.review(new Event('submit'));
+        const shown = text();
+        for (const part of ['Check before creating', 'Ravi Traders', '111', '222', '2 bundles · 26 pcs · 42.32 kg']) expect(shown).toContain(part);
+        expect(create).not.toHaveBeenCalled();
+        (fixture.nativeElement.querySelector('.review-modal .btn:not(.primary)') as HTMLButtonElement).click();
+        expect(c.reviewing()).toBeNull();
+        await c.create(); // nothing was confirmed
+        expect(create).not.toHaveBeenCalled();
+        expect(c.items().length).toBe(2);
+        c.review(new Event('submit'));
+        await Promise.all([c.create(), c.create()]); // a double click
+        expect(create).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets a sales user cancel their own waiting invoice only', async () => {
+        const mine: Invoice = { ...INVOICE, saleNo: 'SALE-000151', status: 'pending', createdBy: 'a@b.c' };
+        const others: Invoice = { ...INVOICE, saleNo: 'SALE-000152', status: 'pending', createdBy: 'x@y.z' };
+        const approved: Invoice = { ...INVOICE, createdBy: 'a@b.c' };
+        await setup('sales', [mine, others, approved]);
+        c.tab.set('invoices');
+        text();
+        const offered = [...fixture.nativeElement.querySelectorAll('.invoice-actions .danger-text')].map((b: any) => b.getAttribute('aria-label'));
+        expect(offered).toEqual(['Cancel invoice SALE-000151']);
+        c.askDelete(mine);
+        expect(text()).toContain('Cancel SALE-000151?');
+        vi.spyOn(api, 'remove').mockResolvedValue({ deleted: 'SALE-000151', restocked: 0, notRestored: [], numberReused: false });
+        (api.list as any).mockResolvedValue([others, approved]);
+        await c.confirmDelete();
+        expect(c.notice()).toBe('SALE-000151 was cancelled. Its bundles are available again.');
+    });
+
     it('keeps the list when the invoice cannot be created', async () => {
         await setup();
         vi.spyOn(api, 'create').mockResolvedValue('Bundle 1 was just taken by someone else.');
         c.items.set([LINE('1')]);
         c.customer.set({ name: 'N', contact: '9860470406', email: '' });
-        await c.create(new Event('submit'));
+        c.review(new Event('submit'));
+        await c.create();
         expect(c.formError()).toContain('just taken');
         expect(c.items().length).toBe(1);
     });
@@ -311,6 +350,37 @@ describe('SalesComponent', () => {
         vi.spyOn(api, 'lookup').mockResolvedValue({ ...LINE('103719'), rack: 'Champagne' });
         await c.add('103719');
         expect(text()).toContain('Champagne');
+    });
+
+    it('lets an admin delete an invoice after confirming, and says what happened', async () => {
+        await setup('admin', [INVOICE]);
+        c.tab.set('invoices');
+        text();
+        (fixture.nativeElement.querySelector('[aria-label="Delete invoice SALE-000150"]') as HTMLButtonElement).click();
+        expect(text()).toContain('Delete SALE-000150?');
+        expect(text()).toContain('back into stock');
+        const remove = vi.spyOn(api, 'remove').mockResolvedValue({ deleted: 'SALE-000150', restocked: 1, notRestored: ['103719'], numberReused: true });
+        (api.list as any).mockResolvedValue([]);
+        await c.confirmDelete();
+        expect(remove).toHaveBeenCalledWith('SALE-000150');
+        expect(c.invoices()).toEqual([]);
+        expect(c.notice()).toBe('SALE-000150 was deleted. 1 bundle is back in stock. Check these bundles, which changed after the sale and were left as they are: 103719. The next invoice will be SALE-000150 again.');
+        expect(data.refreshBundles).toHaveBeenCalled();
+    });
+
+    it('keeps the invoice when deleting fails, and offers delete to admins only', async () => {
+        await setup('admin', [INVOICE]);
+        vi.spyOn(api, 'remove').mockResolvedValue('Only an admin can delete invoices.');
+        c.askDelete(INVOICE);
+        await c.confirmDelete();
+        expect(c.deleteError()).toBe('Only an admin can delete invoices.');
+        expect(c.invoices().length).toBe(1);
+        expect(api.list).toHaveBeenCalledTimes(2);
+        expect(data.refreshBundles).toHaveBeenCalled();
+        c.tab.set('invoices');
+        TestBed.inject(AuthService).user.set({ email: 's@x.y', name: 'S', role: 'sales', modules: ['sales'] });
+        text();
+        expect(fixture.nativeElement.querySelector('[aria-label^="Delete invoice "]')).toBeNull();
     });
 
     it('still shows earlier single-bundle bills', async () => {

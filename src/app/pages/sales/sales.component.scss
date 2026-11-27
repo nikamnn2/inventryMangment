@@ -36,3 +36,16 @@
 .bundle-combo { position: relative; flex: 1 1 220px; }
 .bundle-combo .input { width: 100%; }
 .suggestions li.none { cursor: default; color: var(--muted); background: none; }
+
+.invoice-actions { white-space: nowrap; }
+.invoice-actions .btn + .btn { margin-left: 6px; }
+
+/* check before creating */
+.review-customer { display: grid; gap: 2px; margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); overflow-wrap: anywhere; }
+.review-lines { list-style: none; margin: 12px 0 0; padding: 0 12px; max-height: 240px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; font-size: 14.5px; }
+.review-lines li { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; padding: 9px 0; }
+.review-lines li + li { border-top: 1px solid var(--line); }
+.review-total { margin-top: 12px; text-align: right; font-weight: 700; }
+/* long button names: one under the other when they do not fit side by side */
+.review-modal .form-actions { flex-wrap: wrap; }
+.review-modal .form-actions .btn { flex: 1 1 auto; justify-content: center; }

@@ -1,7 +1,9 @@
 # Deploying to Hostinger
 
-Every push to `main` runs [.github/workflows/deploy.yml](.github/workflows/deploy.yml): it checks the settings,
-runs the tests, uploads the API, then builds and uploads the website. If a step fails, the later ones do not run.
+The app is deployed with [Hostinger's GitHub deployment](#alternative-one-app-at-one-address-hostingers-github-deployment).
+The FTP workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) is kept as a second method and runs only
+when started from the **Actions** tab: it checks the settings, runs the tests, uploads the API, then builds and uploads
+the website. If a step fails, the later ones do not run. The table and one-time setup below describe the FTP method.
 
 | Part | What is uploaded | Where it runs |
 | --- | --- | --- |
@@ -102,6 +104,6 @@ The website uses Angular 21, which needs Node `20.19+`, `22.12+` or `24+` wherev
 leave old; remove an override once `npm audit` stays clean without it. Keep `@angular/build` under `dependencies`:
 the one-app deployment installs without development packages and needs it to build the website.
 
-## Turning automatic deployment off
+## Automatic FTP deployment
 
-Disable the workflow in the repository's **Actions** tab, or remove the `push` trigger from the workflow file.
+It is off. To turn it on, add `push:` with `branches: [main]` under `on:` in the workflow file.

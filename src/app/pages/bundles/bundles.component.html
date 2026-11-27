@@ -1,34 +1,75 @@
-<!-- Purpose: Bundles page: bundle table with Edit / Label buttons, the add / edit dialog and the printable label. -->
+<!-- Purpose: Bundles page: the add panel, the bundle table with Edit / Label / Delete, the edit dialog and the printable label. -->
 <div class="page-head">
   <div><h1>Bundles</h1><p>Packed bundles linked to products, with weight and status.</p></div>
-  <button class="btn primary" type="button" (click)="open()"><app-icon name="plus" [size]="16" /> Add bundle</button>
+  <button class="btn primary add-bundle" type="button" [disabled]="adding()" (click)="startAdding()"><app-icon name="plus" [size]="16" /> Add bundle</button>
 </div>
 
-<div class="card">
-  <div class="card-head">
-    <div><div class="card-title">Bundle list</div><div class="card-note">IDs, stock and status in one place</div></div>
-    <div class="row toolbar">
-      <input class="input" type="search" placeholder="Search bundle, product…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
-      <span class="tag">{{ data.bundles().length }} bundles</span>
+<!-- Add bundles: stays on the page until "Done", so many can be entered one after another. -->
+@if (adding()) {
+  <form class="card entry-panel" novalidate (submit)="saveEntry($event)" aria-label="Add bundles">
+    <div class="card-head">
+      <div><div class="card-title">Add bundles</div><div class="card-note">Enter pieces and weight, then press Enter. Product, rack and date stay for the next one. Numbers are given automatically.</div></div>
+      <div class="entry-tools">
+        <!-- prints the sticker of the bundle saved last -->
+        @if (added()[0]; as last) {
+          <button class="btn sm entry-print" type="button" (click)="label.set(last)" [title]="'Print the label of bundle ' + last.id"><app-icon name="print" [size]="14" /> Print label</button>
+        }
+        <span class="tag">{{ added().length }} added now</span>
+      </div>
     </div>
-  </div>
-  @if (notice()) { <div class="notice ok" role="status" style="margin-bottom:12px">{{ notice() }}</div> }
-  <!-- tick bundles to correct their rack together -->
-  <div class="pick-bar">
-    <label class="pick-all"><input type="checkbox" [checked]="allPicked()" [disabled]="!list().length" (change)="pickAll()" /> Select all {{ list().length }} {{ q().trim() ? 'found' : 'bundles' }}</label>
-    @if (pickedBundles().length) {
-      <span class="pick-count">{{ pickedBundles().length }} selected</span>
-      <button class="btn sm primary" type="button" (click)="openRackDialog()">Change rack</button>
-      <button class="btn sm" type="button" (click)="clearPicked()">Clear</button>
-    }
-  </div>
+    <div class="entry-grid">
+      <div class="field"><label for="new-code">Product / Die No *</label>
+        <select class="input" id="new-code" name="code" [(ngModel)]="entry.code">
+          @for (p of data.products(); track p.code) { <option [value]="p.code">{{ p.code }} · {{ p.name }}</option> }
+        </select></div>
+      <div class="field"><label for="new-pieces">Pieces (PCS) *</label><input #piecesBox class="input" id="new-pieces" type="number" min="0" inputmode="numeric" name="pieces" placeholder="e.g. 10" [(ngModel)]="entry.pieces" (ngModelChange)="discard.set(false)" /></div>
+      <div class="field"><label for="new-weight">Total weight (kg) *</label><input class="input" id="new-weight" type="number" min="0" step="0.01" inputmode="decimal" name="weight" placeholder="e.g. 50.25" [(ngModel)]="entry.weight" (ngModelChange)="discard.set(false)" /></div>
+      <div class="field"><label for="new-avg">Avg. weight (kg/pc)</label><input class="input" id="new-avg" readonly tabindex="-1" name="avg" placeholder="0" [value]="avg(entry)" /></div>
+      <div class="field"><label for="new-rack">Rack</label><app-rack-select inputId="new-rack" [options]="racks()" [(value)]="entry.rack" [(other)]="entryOther" /></div>
+      <div class="field"><label for="new-packed">Date packed</label><input class="input" id="new-packed" type="date" name="packed" [(ngModel)]="entry.packed" /></div>
+      <div class="field"><label for="new-status">Status</label>
+        <select class="input" id="new-status" name="status" [(ngModel)]="entry.status"><option>Packed</option><option>Shipped</option><option>Sold</option></select></div>
+    </div>
+    @if (entryError()) { <div class="notice err" role="alert" style="margin-top:14px">{{ entryError() }}</div> }
+    @if (discard()) { <div class="notice err" role="alert" style="margin-top:14px">The pieces or weight you typed are not saved. Press <strong>Save bundle</strong> to keep them, or <strong>Done</strong> again to discard them.</div> }
+    <!-- not shown (the new row is in the list below); read out by screen readers -->
+    <p class="sr-only" role="status">{{ added()[0] ? 'Saved bundle ' + added()[0].id : '' }}</p>
+    <div class="form-actions">
+      <button class="btn entry-done" type="button" [disabled]="entrySaving()" (click)="finishAdding()">Done</button>
+      <button class="btn primary" type="submit" [disabled]="entrySaving()">{{ entrySaving() ? 'Saving…' : 'Save bundle' }}</button>
+    </div>
+  </form>
+}
+
+<div class="card" [class.mt]="adding()">
+  <!-- left out while bundles are being added, so only the records show under the form -->
+  @if (!adding()) {
+    <div class="card-head">
+      <div><div class="card-title">Bundle list</div><div class="card-note">IDs, stock and status in one place</div></div>
+      <div class="row toolbar">
+        <input class="input" type="search" placeholder="Search bundle, product…" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+        <span class="tag">{{ data.bundles().length }} bundles</span>
+      </div>
+    </div>
+  }
+  @if (!adding()) {
+    <!-- tick bundles to correct their rack together -->
+    <div class="pick-bar">
+      <label class="pick-all"><input type="checkbox" [checked]="allPicked()" [disabled]="!list().length" (change)="pickAll()" /> Select all {{ list().length }} {{ q().trim() ? 'found' : 'bundles' }}</label>
+      @if (pickedBundles().length) {
+        <span class="pick-count">{{ pickedBundles().length }} selected</span>
+        <button class="btn sm primary" type="button" (click)="openRackDialog()">Change rack</button>
+        <button class="btn sm" type="button" (click)="clearPicked()">Clear</button>
+      }
+    </div>
+  }
   <div class="table-wrap">
     <table class="tbl stack">
-      <thead><tr><th><span class="sr-only">Select</span></th><th>Bundle ID</th><th>Product</th><th class="right">Pieces</th><th class="right">Weight</th><th class="right">Avg / pc</th><th>Rack</th><th>Packed</th><th>Status</th><th></th></tr></thead>
+      <thead><tr>@if (!adding()) {<th><span class="sr-only">Select</span></th>}<th>Bundle ID</th><th>Product</th><th class="right">Pieces</th><th class="right">Weight</th><th class="right">Avg / pc</th><th>Rack</th><th>Packed</th><th>Status</th><th></th></tr></thead>
       <tbody>
         @for (b of pager.rows(); track b.id) {
           <tr [class.picked]="picked().has(b.id)">
-            <td data-label="Select"><input class="pick" type="checkbox" [checked]="picked().has(b.id)" (change)="togglePick(b.id)" [attr.aria-label]="'Select bundle ' + b.id" /></td>
+            @if (!adding()) { <td data-label="Select"><input class="pick" type="checkbox" [checked]="picked().has(b.id)" (change)="togglePick(b.id)" [attr.aria-label]="'Select bundle ' + b.id" /></td> }
             <td class="mono" data-label="Bundle ID">{{ b.id }}</td>
             <td data-label="Product"><div><strong>{{ data.productName(b.code) }}</strong><div class="muted small">Die No {{ b.code }}</div></div></td>
             <td class="right" data-label="Pieces">{{ b.pieces }}</td>
@@ -37,24 +78,25 @@
             <td data-label="Rack">{{ b.rack }}</td>
             <td data-label="Packed">{{ b.packed }}</td>
             <td data-label="Status"><span class="badge" [class]="b.status.toLowerCase()">{{ b.status }}</span></td>
-            <td class="right nowrap">
+            <td class="right nowrap row-actions">
               <button class="btn sm" type="button" (click)="open(b)">Edit</button>
               <button class="btn sm" type="button" (click)="label.set(b)">Label</button>
+              @if (isAdmin()) { <button class="btn sm danger-text" type="button" (click)="askDelete(b)" [attr.aria-label]="'Delete bundle ' + b.id">Delete</button> }
             </td>
           </tr>
-        } @empty { <tr><td colspan="10" class="muted">No bundles found.</td></tr> }
+        } @empty { <tr><td [attr.colspan]="adding() ? 9 : 10" class="muted">No bundles found.</td></tr> }
       </tbody>
     </table>
   </div>
   <app-pager [pager]="pager" />
 </div>
 
-<!-- Add / edit bundle dialog. -->
+<!-- Edit bundle dialog. -->
 @if (dialog()) {
   <div class="modal-scrim" (click)="dialog.set(false)">
-    <form class="modal" (click)="$event.stopPropagation()" (submit)="save($event)" role="dialog" aria-modal="true">
-      <h2>{{ editingId() ? 'Edit bundle' : 'Add bundle' }}</h2>
-      <p class="card-note" style="margin-bottom:16px">{{ editingId() ? editingId() : 'The next bundle number is assigned automatically on save.' }}</p>
+    <form class="modal" (click)="$event.stopPropagation()" (submit)="save($event)" role="dialog" aria-modal="true" aria-label="Edit bundle">
+      <h2>Edit bundle</h2>
+      <p class="card-note" style="margin-bottom:16px">{{ editingId() }}</p>
       <div class="form-grid">
         <div class="field wide"><label>Product / Die No *</label>
           <select class="input" name="code" [(ngModel)]="form.code">
@@ -63,10 +105,10 @@
         <div class="field"><label>Pieces (PCS) *</label><input class="input" type="number" min="0" name="pieces" placeholder="e.g. 10" [(ngModel)]="form.pieces" /></div>
         <div class="field"><label>Total weight (kg) *</label><input class="input" type="number" min="0" step="0.01" name="weight" placeholder="e.g. 50.25" [(ngModel)]="form.weight" />
           <span class="card-note">Enter manually · scale capture is planned</span></div>
-        <div class="field"><label>Avg. weight (kg/pc)</label><input class="input" readonly name="avg" [value]="avg()" /></div>
+        <div class="field"><label>Avg. weight (kg/pc)</label><input class="input" readonly name="avg" placeholder="0" [value]="avg()" /></div>
         <div class="field"><label>Date packed</label><input class="input" type="date" name="packed" [(ngModel)]="form.packed" /></div>
         <div class="field"><label for="rack">Rack</label><app-rack-select [options]="racks()" [(value)]="form.rack" [(other)]="rackOther" />
-          <span class="card-note">Printed as “Label” on the sticker{{ editingId() ? '' : '. Stays chosen for your next bundle.' }}</span></div>
+          <span class="card-note">Printed as “Label” on the sticker</span></div>
         <div class="field"><label>Status</label>
           <select class="input" name="status" [(ngModel)]="form.status"><option>Packed</option><option>Shipped</option><option>Sold</option></select></div>
       </div>
@@ -76,6 +118,25 @@
         <button class="btn primary" type="submit">Save bundle</button>
       </div>
     </form>
+  </div>
+}
+
+<!-- "2 bundles added", "Bundle 1008 was deleted" and rack changes: gone after five seconds. -->
+<app-toast [message]="notice()" (closed)="notice.set('')" />
+
+<!-- Delete a bundle: always asks first. -->
+@if (deleting(); as b) {
+  <div class="modal-scrim" (click)="deleting.set(null)">
+    <div class="modal delete-bundle" (click)="$event.stopPropagation()" role="alertdialog" aria-modal="true" aria-label="Delete bundle">
+      <h2>Delete bundle {{ b.id }}?</h2>
+      <p class="card-note">{{ data.productName(b.code) }} · {{ b.pieces }} pcs · {{ b.weight | number: '1.1-2' }} kg · Rack {{ b.rack }}</p>
+      <p style="margin-top:14px">It is removed from the list and from stock. <strong>This cannot be undone.</strong> If its sticker is on a bundle, remove the sticker.</p>
+      @if (deleteError()) { <div class="notice err" role="alert" style="margin-top:14px">{{ deleteError() }}</div> }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="deleting.set(null)">Cancel</button>
+        <button class="btn danger-text delete-confirm" type="button" [disabled]="removing()" (click)="confirmDelete()">{{ removing() ? 'Deleting…' : 'Delete bundle' }}</button>
+      </div>
+    </div>
   </div>
 }
 

@@ -63,7 +63,7 @@
     <app-pager [pager]="itemPager" />
   </div>
 
-  <form class="card mt" novalidate (submit)="create($event)">
+  <form class="card mt" novalidate (submit)="review($event)">
     <div class="card-head">
       <div><div class="card-title">2. Customer</div><div class="card-note">Choose a saved customer, or type a new one. New customers are saved automatically.</div></div>
       @if (customerStatus(); as status) { <span class="tag">{{ status }}</span> }
@@ -113,7 +113,10 @@
               <td class="right" data-label="PCS">{{ inv.totals.pcs }}</td>
               <td class="right" data-label="Weight">{{ inv.totals.weight | number: '1.2-2' }} kg</td>
               <td data-label="Status"><span class="badge" [class]="inv.status === 'issued' ? 'ok' : inv.status === 'rejected' ? 'danger' : 'warn'">{{ statusLabel(inv.status) }}</span></td>
-              <td class="right"><button class="btn sm" type="button" (click)="openInvoice(inv)">{{ inv.status === 'pending' && isAdmin() ? 'Review' : 'View' }}</button></td>
+              <td class="right invoice-actions">
+                <button class="btn sm" type="button" (click)="openInvoice(inv)">{{ inv.status === 'pending' && isAdmin() ? 'Review' : 'View' }}</button>
+                @if (canDelete(inv)) { <button class="btn sm danger-text" type="button" (click)="askDelete(inv)" [attr.aria-label]="(isAdmin() ? 'Delete invoice ' : 'Cancel invoice ') + inv.saleNo">{{ isAdmin() ? 'Delete' : 'Cancel' }}</button> }
+              </td>
             </tr>
           } @empty { <tr><td colspan="9" class="muted">No invoices yet.</td></tr> }
         </tbody>
@@ -142,6 +145,51 @@
       <app-pager [pager]="oldPager" />
     </div>
   }
+}
+
+<!-- Check before creating: the last chance to fix a mistake before anything is saved. -->
+@if (reviewing(); as r) {
+  <div class="modal-scrim" (click)="saving() || reviewing.set(null)">
+    <div class="modal review-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Check the invoice">
+      <h2>Check before {{ isAdmin() ? 'creating' : 'sending' }}</h2>
+      <p class="card-note">Nothing is saved yet. Check the customer and every bundle.</p>
+      <div class="review-customer">
+        <strong>{{ r.customer.name }}</strong>
+        <span>{{ r.customer.contact }}{{ r.customer.email ? ' · ' + r.customer.email : '' }}</span>
+      </div>
+      <ul class="review-lines">
+        @for (i of r.lines; track i.bundleId) {
+          <li><span><span class="mono">{{ i.bundleId }}</span> {{ i.product }}{{ i.size ? ' · ' + i.size : '' }}</span><b>{{ i.pcs }} pcs · {{ i.weight | number: '1.2-2' }} kg</b></li>
+        }
+      </ul>
+      <p class="review-total">{{ r.totals.bundles }} {{ r.totals.bundles === 1 ? 'bundle' : 'bundles' }} · {{ r.totals.pcs }} pcs · {{ r.totals.weight | number: '1.2-2' }} kg</p>
+      <div class="form-actions">
+        <button class="btn" type="button" [disabled]="saving()" (click)="reviewing.set(null)">Go back and change</button>
+        <button class="btn primary review-confirm" type="button" [disabled]="saving()" (click)="create()">{{ saving() ? 'Please wait…' : isAdmin() ? 'Confirm &amp; create invoice' : 'Confirm &amp; send' }}</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete or cancel an invoice: says what will happen and always asks first. -->
+@if (deletingInvoice(); as inv) {
+  <div class="modal-scrim" (click)="deletingInvoice.set(null)">
+    <div class="modal delete-invoice" (click)="$event.stopPropagation()" role="alertdialog" aria-modal="true" [attr.aria-label]="isAdmin() ? 'Delete invoice' : 'Cancel invoice'">
+      <h2>{{ isAdmin() ? 'Delete' : 'Cancel' }} {{ inv.saleNo }}?</h2>
+      <p class="card-note">{{ inv.customer.name }} · {{ inv.totals.bundles }} {{ inv.totals.bundles === 1 ? 'bundle' : 'bundles' }} · {{ inv.totals.pcs }} pcs · {{ inv.totals.weight | number: '1.2-2' }} kg</p>
+      <p style="margin-top:14px">
+        @if (inv.status === 'issued') { Its bundles go <strong>back into stock</strong> and the sale is removed from reports. If the customer has this invoice, tell them it is cancelled. }
+        @else if (inv.status === 'pending') { Its bundles are freed for another sale. }
+        @else { This rejected invoice is removed from the list. }
+        <strong>This cannot be undone.</strong>
+      </p>
+      @if (deleteError()) { <div class="notice err" role="alert" style="margin-top:14px">{{ deleteError() }}</div> }
+      <div class="form-actions">
+        <button class="btn" type="button" (click)="deletingInvoice.set(null)">Keep it</button>
+        <button class="btn danger-text delete-confirm" type="button" [disabled]="removing()" (click)="confirmDelete()">{{ removing() ? 'Please wait…' : isAdmin() ? 'Delete invoice' : 'Cancel invoice' }}</button>
+      </div>
+    </div>
+  </div>
 }
 
 <!-- One invoice: view, print (A4) when issued, approve or reject while waiting. -->

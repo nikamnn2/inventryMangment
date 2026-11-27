@@ -14,6 +14,8 @@ export interface Pager<T> {
   /** The records to draw: one page on a desktop; everything loaded so far on a phone. */
   readonly rows: Signal<T[]>;
   readonly total: Signal<number>;
+  /** Records per page. */
+  readonly size: Signal<number>;
   readonly page: Signal<number>;
   readonly pages: Signal<number>;
   /** True while tables are shown as card lists. */
@@ -28,7 +30,7 @@ export interface Pager<T> {
  * Pages through `items`. When `resetOn` changes (a search or filter) it goes back to the first page;
  * when only the records change (an edit, a refresh) it stays where it was. Call from a field initialiser.
  */
-export function createPager<T>(items: () => T[], resetOn: () => unknown = () => null): Pager<T> {
+export function createPager<T>(items: () => T[], resetOn: () => unknown = () => null, perPage: () => number = () => PAGE_SIZE): Pager<T> {
   const view = inject(DOCUMENT).defaultView;
   const media = view?.matchMedia?.(LIST_QUERY);
   const list = signal(!!media?.matches);
@@ -40,15 +42,16 @@ export function createPager<T>(items: () => T[], resetOn: () => unknown = () => 
 
   const wanted = linkedSignal({ source: resetOn, computation: () => 1 });
   const total = computed(() => items().length);
-  const pages = computed(() => Math.max(1, Math.ceil(total() / PAGE_SIZE)));
+  const size = computed(perPage);
+  const pages = computed(() => Math.max(1, Math.ceil(total() / size())));
   // never past the end, for example after the last record of the last page is removed
   const page = computed(() => Math.min(wanted(), pages()));
-  const from = computed(() => (!total() ? 0 : list() ? 1 : (page() - 1) * PAGE_SIZE + 1));
-  const to = computed(() => Math.min(page() * PAGE_SIZE, total()));
+  const from = computed(() => (!total() ? 0 : list() ? 1 : (page() - 1) * size() + 1));
+  const to = computed(() => Math.min(page() * size(), total()));
 
   return {
     rows: computed(() => items().slice(Math.max(0, from() - 1), to())),
-    total, page, pages, list, from, to,
+    total, size, page, pages, list, from, to,
     go: n => wanted.set(Math.min(Math.max(1, n), pages())),
   };
 }
@@ -58,7 +61,7 @@ export function createPager<T>(items: () => T[], resetOn: () => unknown = () => 
   selector: 'app-pager',
   template: `
     @if (pager(); as p) {
-      @if (p.total() > size) {
+      @if (p.total() > p.size()) {
         <nav class="pager" [class.list]="p.list()" aria-label="Pagination">
           @if (p.list()) {
             <span class="count" aria-live="polite">Showing {{ p.to() }} of {{ p.total() }}</span>
@@ -83,5 +86,4 @@ export function createPager<T>(items: () => T[], resetOn: () => unknown = () => 
 })
 export class PagerComponent {
   readonly pager = input.required<Pager<unknown>>();
-  protected readonly size = PAGE_SIZE;
 }

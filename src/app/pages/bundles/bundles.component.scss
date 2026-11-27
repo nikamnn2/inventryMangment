@@ -92,3 +92,12 @@ tr.picked td { background: var(--accent-soft); }
 .picked-list { list-style: none; margin: 0 0 14px; padding: 8px 12px; max-height: 160px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 6px; font-size: 14.5px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media screen and (max-width: 600px) { .pick-count { margin-left: 0; } }
+
+@media screen and (max-width: 600px) { .row-actions { flex-wrap: wrap; } }
+
+/* the add panel: as many columns as fit, one on a phone */
+.entry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; align-items: start; }
+.entry-grid .field { min-width: 0; }
+.entry-grid .input { min-width: 0; width: 100%; }
+.entry-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+@media screen and (max-width: 600px) { .entry-grid { grid-template-columns: minmax(0, 1fr); } }

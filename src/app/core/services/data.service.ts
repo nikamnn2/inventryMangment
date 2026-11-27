@@ -235,6 +235,20 @@ export class DataService {
     }
   }
 
+  /** Deletes a bundle. Resolves to an error message, or null when it is gone. */
+  async deleteBundle(id: string): Promise<string | null> {
+    let failure: string | null = null;
+    try {
+      await firstValueFrom(this.http.delete(`/api/bundles/${encodeURIComponent(id)}`));
+      this.bundles.update(list => list.filter(b => b.id !== id));
+    } catch (e) {
+      failure = message(e);
+    }
+    // read the list again either way: a refusal usually means this screen is out of date
+    await this.refreshBundles().catch(() => undefined);
+    return failure;
+  }
+
   /** Barcode / scanner lookup by full ID or a unique prefix. */
   async findBundle(scan: string): Promise<Bundle | string> {
     const q = scan.trim();

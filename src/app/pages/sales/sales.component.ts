@@ -3,7 +3,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { isMobileDevice } from '../../core/config/device';
 import { AuthService } from '../../core/services/auth.service';
 import { DataService, Sale } from '../../core/services/data.service';
-import { Invoice, InvoiceCustomer, InvoiceLine, InvoiceService, SavedCustomer } from '../../core/services/invoice.service';
+import { DeletedInvoice, Invoice, InvoiceCustomer, InvoiceLine, InvoiceService, SavedCustomer } from '../../core/services/invoice.service';
 import { CameraScannerComponent } from '../../shared/components/camera-scanner/camera-scanner.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { InvoiceSheetComponent } from '../../shared/components/invoice-sheet/invoice-sheet.component';
@@ -276,8 +276,11 @@ export class SalesComponent {
     }
   }
 
-  /** Creates the invoice: issued at once for an admin, otherwise sent to an admin to approve. */
-  protected async create(event: Event): Promise<void> {
+  /** What is about to be invoiced, shown to be checked before anything is saved. */
+  protected readonly reviewing = signal<{ lines: InvoiceLine[]; totals: { bundles: number; pcs: number; weight: number }; customer: InvoiceCustomer } | null>(null);
+
+  /** "Create invoice": checks the fields, then shows everything once more. Nothing is saved yet. */
+  protected review(event: Event): void {
     event.preventDefault();
     const c = this.customer();
     const customer = { name: c.name.trim(), contact: c.contact.trim(), email: c.email.trim() };
@@ -287,10 +290,19 @@ export class SalesComponent {
       : customer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email) ? 'Enter a valid email address.' : '';
     this.formError.set(problem);
     if (problem || this.saving()) return;
-    this.saving.set(true);
+    this.scanning.set(false); // nothing more is added while it is being checked
     // the invoice lists bundles in the order they were added
-    const result = await this.api.create(this.items().map(i => i.bundleId).reverse(), customer);
+    this.reviewing.set({ lines: [...this.items()].reverse(), totals: this.totals(), customer });
+  }
+
+  /** Confirmed: creates the invoice, issued at once for an admin, otherwise sent to an admin to approve. */
+  protected async create(): Promise<void> {
+    const checked = this.reviewing();
+    if (!checked || this.saving()) return;
+    this.saving.set(true);
+    const result = await this.api.create(checked.lines.map(i => i.bundleId), checked.customer);
     this.saving.set(false);
+    this.reviewing.set(null);
     if (typeof result === 'string') {
       this.formError.set(result);
       return;
@@ -324,6 +336,48 @@ export class SalesComponent {
   /** Stock and sales changed. A sales user may not see those lists; the invoice is saved either way. */
   private async refreshStock(): Promise<void> {
     await Promise.all([this.data.refreshBundles().catch(() => undefined), this.data.refreshSales().catch(() => undefined)]);
+  }
+
+  // ---- deleting an invoice (an admin), or cancelling one's own while it waits ----
+  /** An admin may delete any invoice; others only their own that is not approved yet. */
+  protected canDelete(invoice: Invoice): boolean {
+    return this.isAdmin() || (invoice.status === 'pending' && !!invoice.createdBy && invoice.createdBy === this.auth.user()?.email);
+  }
+
+  protected readonly deletingInvoice = signal<Invoice | null>(null);
+  protected readonly deleteError = signal('');
+  protected readonly removing = signal(false);
+
+  protected askDelete(invoice: Invoice): void {
+    this.deleteError.set('');
+    this.deletingInvoice.set(invoice);
+  }
+
+  protected async confirmDelete(): Promise<void> {
+    const invoice = this.deletingInvoice();
+    if (!invoice || this.removing()) return;
+    this.removing.set(true);
+    const result = await this.api.remove(invoice.saleNo);
+    this.removing.set(false);
+    if (typeof result === 'string') {
+      this.deleteError.set(result);
+      // it may have been approved or deleted by someone else: show how things stand now
+      await Promise.all([this.loadInvoices(), this.refreshStock()]);
+      return;
+    }
+    this.deletingInvoice.set(null);
+    this.viewing.set(null);
+    this.invoices.update(list => list.filter(i => i.saleNo !== result.deleted));
+    this.notice.set(this.describeDelete(result));
+    await Promise.all([this.loadInvoices(), this.refreshStock()]);
+  }
+
+  private describeDelete(result: DeletedInvoice): string {
+    const parts = [`${result.deleted} was ${this.isAdmin() ? 'deleted' : 'cancelled. Its bundles are available again'}.`];
+    if (result.restocked) parts.push(`${result.restocked} ${result.restocked === 1 ? 'bundle is' : 'bundles are'} back in stock.`);
+    if (result.notRestored.length) parts.push(`Check these bundles, which changed after the sale and were left as they are: ${result.notRestored.join(', ')}.`);
+    if (result.numberReused) parts.push(`The next invoice will be ${result.deleted} again.`);
+    return parts.join(' ');
   }
 
   protected statusLabel(status: Invoice['status']): string {

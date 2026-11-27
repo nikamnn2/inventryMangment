@@ -8,6 +8,9 @@ export interface InvoiceLine { bundleId: string; dieNo: string; product: string;
 
 export interface InvoiceCustomer { name: string; contact: string; email: string; }
 
+/** What deleting an invoice did. */
+export interface DeletedInvoice { deleted: string; restocked: number; notRestored: string[]; numberReused: boolean; }
+
 /** A saved customer, suggested while typing the name. */
 export interface SavedCustomer extends InvoiceCustomer { city: string; }
 
@@ -18,6 +21,8 @@ export interface Invoice {
   customer: InvoiceCustomer;
   items: InvoiceLine[];
   totals: { bundles: number; pcs: number; weight: number };
+  /** The email of whoever made it. */
+  createdBy?: string;
   createdByName?: string;
   createdAt: string;
   issuedAt?: string;
@@ -117,6 +122,11 @@ export class InvoiceService {
     }
     this.saveFile(file);
     return 'saved';
+  }
+
+  /** Deletes an invoice (an admin any; others their own waiting one); its bundles go back to stock. */
+  remove(saleNo: string): Promise<DeletedInvoice | string> {
+    return this.call(() => firstValueFrom(this.http.delete<DeletedInvoice>(`/api/sales/invoices/${encodeURIComponent(saleNo)}`)));
   }
 
   decide(saleNo: string, decision: 'approve' | 'reject'): Promise<Invoice | string> {

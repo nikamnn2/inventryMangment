@@ -50,7 +50,7 @@ export function invoicesController({ db }) {
       const product = byDie.get(b.dieNo);
       const category = product?.category ?? 'Aluminium';
       return {
-        bundleId: b.bundleId, dieNo: b.dieNo, product: product?.name ?? b.dieNo, size: product?.size ?? '', rack: b.rack ?? '', length: product?.clValue ?? '', category,
+        bundleId: b.bundleId, dieNo: b.dieNo, product: product?.name ?? b.dieNo, size: product?.size ?? '', rack: b.rack ?? '', length: product?.clValue ?? '', category, bundleStatus: b.status,
         pcs: b.pieces, weight: b.weight, amount: Math.round(b.weight * (settings?.rates?.[category] ?? 0)),
       };
     });
@@ -86,6 +86,24 @@ export function invoicesController({ db }) {
     return { ...invoice, ...done };
   }
 
+  /**
+   * Puts the bundles of a deleted issued invoice back in stock. A bundle that is no longer as that sale
+   * left it (edited since, on another sale, or gone) is not overwritten; its number is returned instead.
+   */
+  async function restock(invoice) {
+    const notRestored = [];
+    for (const item of invoice.items) {
+      // only a later sale matters: part of the bundle may have been billed before this invoice
+      const later = await sales.findOne({ bundleId: item.bundleId, invoiceNo: { $ne: invoice.saleNo }, createdAt: { $gt: invoice.issuedAt } });
+      const result = later ? null : await bundles.updateOne(
+        { bundleId: item.bundleId, pieces: 0, status: 'Sold', reservedBy: { $exists: false } },
+        { $set: { pieces: item.pcs, weight: item.weight, status: item.bundleStatus && item.bundleStatus !== 'Sold' ? item.bundleStatus : 'Packed', updatedAt: new Date() } },
+      );
+      if (!result?.matchedCount) notRestored.push(item.bundleId);
+    }
+    return notRestored;
+  }
+
   /** Takes a waiting invoice for one decision, so two admins can never both act on it. */
   async function claim(saleNo, next) {
     const invoice = await invoices.findOneAndUpdate({ saleNo, status: 'pending' }, { $set: { status: next } }, { returnDocument: 'before', ...NO_ID });
@@ -106,7 +124,7 @@ export function invoicesController({ db }) {
         bundle = matches[0];
       }
       mustBeFree(bundle);
-      const [{ amount, category, ...line }] = await describe([bundle]);
+      const [{ amount, category, bundleStatus, ...line }] = await describe([bundle]);
       res.json(line);
     },
 
@@ -123,7 +141,7 @@ export function invoicesController({ db }) {
         and.push({ $or: [{ bundleId: rx }, { dieNo: rx }, { rack: rx }, { dieNo: { $in: products.map(p => p.dieNo) } }] });
       }
       const found = await bundles.find(and.length ? { ...FREE, $and: and } : FREE).sort({ createdAt: -1 }).limit(30).toArray();
-      res.json((await describe(found)).map(({ amount, category, ...line }) => line));
+      res.json((await describe(found)).map(({ amount, category, bundleStatus, ...line }) => line));
     },
 
     /** Saved customers for the name suggestions on a new invoice. */
@@ -211,6 +229,50 @@ export function invoicesController({ db }) {
         await invoices.updateOne({ saleNo: invoice.saleNo }, { $set: { status: 'pending' } });
         throw err;
       }
+    },
+
+    /**
+     * Removes an invoice. An admin may remove any; anyone else only one they made that is still waiting
+     * (nothing is sold yet). An issued one gives its bundles back to stock and drops its sales lines; a
+     * waiting one frees them. The newest number is used again; older numbers are left as they are, so
+     * invoices that have already been handed out keep theirs.
+     */
+    async remove(req, res) {
+      const { saleNo } = req.params;
+      const allowed = isAdmin(req) ? { status: { $in: ['pending', 'issued', 'rejected'] } } : { status: 'pending', createdBy: req.user.sub };
+      // take it for this one action, so it cannot be approved or deleted twice at the same time
+      const invoice = await invoices.findOneAndUpdate({ saleNo, ...allowed }, { $set: { status: 'deleting' } }, { returnDocument: 'before' });
+      if (!invoice) {
+        const existing = await invoices.findOne({ saleNo });
+        if (!existing) throw new HttpError(404, 'Invoice not found.');
+        if (!isAdmin(req)) {
+          if (existing.createdBy !== req.user.sub) throw new HttpError(403, 'You can cancel only your own invoice. Ask an admin to delete this one.');
+          if (existing.status === 'issued' || existing.status === 'rejected') throw new HttpError(403, 'An admin has already decided this invoice. Ask an admin to delete it.');
+        }
+        throw new HttpError(409, 'This invoice is being changed right now. Try again in a moment.');
+      }
+      let notRestored = [];
+      try {
+        if (invoice.status === 'issued') {
+          notRestored = await restock(invoice);
+          await sales.deleteMany({ invoiceNo: saleNo });
+        } else if (invoice.status === 'pending') {
+          await release(saleNo);
+        }
+        await invoices.deleteOne({ _id: invoice._id });
+      } catch (err) {
+        await invoices.updateOne({ _id: invoice._id }, { $set: { status: invoice.status } });
+        throw err;
+      }
+      // one atomic step back, only when no newer number has been handed out
+      const number = Number(saleNo.replace(/\D/g, ''));
+      const reused = await db.collection(C.counters).updateOne({ _id: 'invoice', seq: number }, { $set: { seq: number - 1 } });
+      res.json({
+        deleted: saleNo,
+        restocked: invoice.status === 'issued' ? invoice.items.length - notRestored.length : 0,
+        notRestored,
+        numberReused: reused.matchedCount > 0,
+      });
     },
 
     /** Admin only: turns a waiting invoice down and frees its bundles. */
