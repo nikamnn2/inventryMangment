@@ -43,7 +43,7 @@
   <div class="modal-scrim" (click)="dialog.set(false)">
     <form class="modal" (click)="$event.stopPropagation()" (submit)="save($event)" role="dialog" aria-modal="true">
       <h2>{{ editingId() ? 'Edit bundle' : 'Add bundle' }}</h2>
-      <p class="card-note" style="margin-bottom:16px">{{ editingId() ? editingId() : 'A unique bundle ID is generated on save.' }}</p>
+      <p class="card-note" style="margin-bottom:16px">{{ editingId() ? editingId() : 'The next bundle number is assigned automatically on save.' }}</p>
       <div class="form-grid">
         <div class="field wide"><label>Product / Die No *</label>
           <select class="input" name="code" [(ngModel)]="form.code">
@@ -103,22 +103,29 @@
 
       <!-- The 63 x 63 mm sticker: hidden on screen, and the only thing that is printed. -->
       <div class="sheet sticker">
-        <div class="st-title">BUNDLE: {{ b.id }}</div>
         <div class="st-table">
-          <div><strong>{{ b.pieces }}</strong><small>PCS</small></div>
-          <div><small>WEIGHT</small><strong>{{ b.weight | number: '1.2-2' }}</strong></div>
-          <div><small>AVG WT</small><strong>{{ b.pieces ? (b.weight / b.pieces | number: '1.3-3') : '-' }}</strong></div>
-        </div>
-        <div class="st-row"><span>DIE: {{ b.code || '-' }}</span><span>SIZE: {{ data.product(b.code)?.size || '-' }}</span></div>
-        <div class="st-middle">
-          <div class="st-profile">
-            Profile: <strong [class.long]="data.productName(b.code).length > 16">{{ data.productName(b.code) }}</strong>
-            <!-- the rack value is what is printed as "Label"; "—" is what an empty rack is saved as -->
-            @if (b.rack && b.rack !== '—' && b.rack !== '-') { <div class="st-label" [class.long]="b.rack.length > 12">Label: <strong class="st-note">{{ firstCapital(b.rack) }}</strong></div> }
+          <div class="st-row"><span class="st-key">BUNDLE ID</span><span>:</span><b class="st-id">{{ b.id }}</b></div>
+          <div class="st-row"><span class="st-key">PROFILE</span><span>:</span><b class="st-profile" [class.long]="data.productName(b.code).length > 18">{{ data.productName(b.code) }}</b></div>
+          <div class="st-row split">
+            <div><span class="st-key">PCS</span><span>:</span><b>{{ b.pieces }}</b></div>
+            <div><span>AVG WT :</span><b>{{ b.pieces ? (b.weight / b.pieces | number: '1.3-3') : '-' }}</b></div>
           </div>
+          <div class="st-row"><span class="st-key">TOTAL WT</span><span>:</span><b>{{ b.weight | number: '1.2-2' }} Kg</b></div>
+          <div class="st-row split">
+            <div [class.long]="(data.product(b.code)?.size?.length ?? 0) > 8"><span class="st-key short">SIZE</span><span>:</span><b>{{ data.product(b.code)?.size || '-' }}</b></div>
+            <div [class.long]="b.code.length > 8"><span>DIE :</span><b>{{ b.code || '-' }}</b></div>
+          </div>
+          <div class="st-row split">
+            <div><span class="st-key short">BATCH</span><span>:</span><b class="st-batch">{{ batch(b.packed) }}</b></div>
+            <div><span>MFG :</span><b class="st-mfg">{{ shortDate(b.packed) }}</b></div>
+          </div>
+          <!-- the rack value is what is printed as "Label"; "—" is what an empty rack is saved as -->
+          @if (b.rack && b.rack !== '—' && b.rack !== '-') { <div class="st-row st-label"><span class="st-key">LABEL</span><span>:</span><b class="st-note">{{ firstCapital(b.rack) }}</b></div> }
+        </div>
+        <div class="st-codes">
+          <app-barcode class="st-barcode" [value]="b.id" />
           <app-qrcode class="st-qr" [value]="b.id" />
         </div>
-        <app-barcode class="st-barcode" [value]="b.id" />
       </div>
       <p class="card-note no-print" style="margin-top:12px">Printing a label does not create a new bundle. The barcode and QR code both carry the bundle ID.</p>
     </div>

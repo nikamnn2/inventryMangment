@@ -29,35 +29,42 @@
 
 /*
  * Printed sticker, 63 x 63 mm. --u is 1% of its side: 0.63 mm, or less on smaller paper. So it is the
- * same square on every device, including phones that ignore the page size and offer A4. The two
- * fonts are web fonts (see index.html) so a phone, which has no Windows fonts, draws it the same.
+ * same square on every device, including phones that ignore the page size and offer A4. The font
+ * is a web font (see index.html) so a phone, which has no Windows fonts, draws it the same.
  */
 .sticker { display: none; }
 @page sticker { size: 63mm 63mm; margin: 0; }
 @media print {
-  .sticker { --u: min(1vw, 1vh, 0.63mm); page: sticker; display: flex; flex-direction: column; gap: calc(var(--u) * 1.5); width: calc(var(--u) * 100); height: calc(var(--u) * 99); margin: 0 auto; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow: hidden; padding: calc(var(--u) * 3) calc(var(--u) * 2); color: #000; font-family: Inconsolata, Consolas, monospace; line-height: 1.1; }
-  .st-title { text-align: center; white-space: nowrap; font-size: calc(var(--u) * 7.6); font-weight: 700; }
-  .st-table { display: grid; grid-template-columns: 0.9fr 1.1fr 1.1fr; margin: 0 calc(var(--u) * 2); border: solid #000; border-width: 0.4mm 0; }
-  .st-table > div { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: var(--u) 0; border-left: 0.3mm solid #000; }
-  .st-table > div:last-child { border-right: 0.3mm solid #000; }
-  .st-table strong { font-size: calc(var(--u) * 7.4); white-space: nowrap; }
-  .st-table > div:first-child strong { font-size: calc(var(--u) * 10); }
-  .st-table small { font-size: calc(var(--u) * 3.8); font-weight: 700; }
-  .st-row { display: flex; justify-content: space-between; gap: calc(var(--u) * 2); padding: 0 calc(var(--u) * 2); font-size: calc(var(--u) * 4.6); }
-  .st-middle { flex: 1; min-height: 0; display: flex; align-items: center; gap: calc(var(--u) * 2); padding-left: calc(var(--u) * 2); }
-  .st-profile { flex: 1; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: anywhere; font-size: calc(var(--u) * 5.2); font-weight: 700; -webkit-text-stroke: 0.1mm #000; }
-  /* the name itself: bigger, and outlined as well as bold, because thermal printing thins the letters */
-  .st-profile strong { display: block; font-family: Arimo, Arial, Helvetica, sans-serif; font-size: calc(var(--u) * 7.4); font-weight: 700; -webkit-text-stroke: 0.15mm #000; }
-  /* "Label:" and its value: the same font and size */
-  .st-label { margin-top: calc(var(--u) * 1.6); font-family: Arimo, Arial, Helvetica, sans-serif; font-size: calc(var(--u) * 6.4); font-weight: 700; line-height: 1.08; }
-  .st-label.long { font-size: calc(var(--u) * 4.6); }
-  .st-profile .st-note { display: inline; font-size: inherit; }
-  /* long text prints smaller, so the name and the sticker label both fit */
-  .st-profile strong.long { font-size: calc(var(--u) * 4.8); -webkit-text-stroke-width: 0.1mm; line-height: 1.08; }
-  .st-qr ::ng-deep svg { width: calc(var(--u) * 29) !important; height: calc(var(--u) * 29) !important; }
-  /* full width: a 16-character ID needs it to keep the bars about 2 printer dots wide at 203 dpi */
-  .st-barcode { width: 100%; }
-  .st-barcode ::ng-deep svg { width: 100% !important; height: calc(var(--u) * 18) !important; }
+  .sticker { --u: min(1vw, 1vh, 0.63mm); page: sticker; display: flex; flex-direction: column; gap: calc(var(--u) * 2); width: calc(var(--u) * 100); height: calc(var(--u) * 99); margin: 0 auto; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow: hidden; padding: calc(var(--u) * 2.5) calc(var(--u) * 2); color: #000; font-family: Arimo, Arial, Helvetica, sans-serif; font-weight: 700; line-height: 1.1; }
+  /* the details table: rows share the height left above the codes */
+  .st-table { flex: 1; min-height: 0; display: flex; flex-direction: column; border: 0.3mm solid #000; border-radius: 1mm; font-size: calc(var(--u) * 5.4); }
+  .st-row { flex: 1 1 0; min-height: 0; display: flex; align-items: center; gap: calc(var(--u) * 1.5); padding: 0 calc(var(--u) * 2); white-space: nowrap; overflow: hidden; }
+  .st-row + .st-row { border-top: 0.25mm solid #000; }
+  .st-row b { font-size: calc(var(--u) * 5.8); }
+  .st-key { flex: none; width: calc(var(--u) * 29); }
+  .st-id { letter-spacing: 0; }
+  .st-profile { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1; }
+  .st-profile.long { font-size: calc(var(--u) * 4.4) !important; }
+  /* two cells side by side, divided by a line */
+  .st-row.split { padding: 0; gap: 0; align-items: stretch; }
+  .st-row.split > div { display: flex; align-items: center; gap: calc(var(--u) * 1.5); min-width: 0; overflow: hidden; padding: 0 calc(var(--u) * 2); }
+  .st-row.split > div:first-child { flex: 0 0 54%; }
+  .st-row.split > div:last-child { flex: 1; justify-content: center; border-left: 0.25mm solid #000; padding: 0 var(--u); }
+  .st-row.split > div.long, .st-row.split > div.long b { font-size: calc(var(--u) * 3.4); }
+  .st-row.split > div.long { gap: var(--u); }
+  .st-row.split > div.long .st-key.short { width: calc(var(--u) * 11); }
+  .st-key.short { width: calc(var(--u) * 19.5); }
+  .st-row.split > div { padding-right: var(--u); }
+  .st-row.split > div:first-child:not(.long) { gap: var(--u); }
+  .st-row.split b { font-size: calc(var(--u) * 5.4); }
+  /* "LABEL" and its value: the same size */
+  .st-row.st-label b { font-size: inherit; overflow: hidden; text-overflow: ellipsis; }
+  /* barcode and QR code side by side */
+  .st-codes { flex: none; display: flex; align-items: center; gap: var(--u); height: calc(var(--u) * 25); }
+  .st-barcode { flex: 1; min-width: 0; }
+  .st-barcode ::ng-deep svg { width: 100% !important; height: calc(var(--u) * 21) !important; }
+  .st-qr { flex: none; }
+  .st-qr ::ng-deep svg { width: calc(var(--u) * 25) !important; height: calc(var(--u) * 25) !important; }
 }
 
 /* phones: the label popup lists the details in one column, name on the left and value on the right */

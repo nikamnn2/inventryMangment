@@ -7,7 +7,7 @@ import { createApp } from '../src/app.js';
 import { requireAuth } from '../src/middleware/auth.middleware.js';
 import { errorHandler } from '../src/middleware/error.middleware.js';
 import { signToken, verifyToken, hashPassword, checkPassword } from '../src/services/auth.service.js';
-import { HttpError, escapeRegex, num, oneOf, rangeStart, round2, sendCsv, str, wrap, newBundleId, isoDate } from '../src/utils/index.js';
+import { HttpError, escapeRegex, num, oneOf, rangeStart, round2, sendCsv, str, wrap, isoDate } from '../src/utils/index.js';
 
 const config = { jwtSecret: 's3cret', jwtExpiresIn: '1h', adminEmail: 'a@b.c', authDisabled: false };
 
@@ -46,12 +46,6 @@ describe('helpers', () => {
     const re = new RegExp(`^${escapeRegex('a.b*c(1)')}$`);
     assert.ok(re.test('a.b*c(1)'));
     assert.ok(!re.test('aXb*c(1)'));
-  });
-
-  it('newBundleId yields unique 16-char hex ids', () => {
-    const a = newBundleId();
-    assert.match(a, /^[0-9a-f]{16}$/);
-    assert.notEqual(a, newBundleId());
   });
 
   it('rangeStart resolves every range and rejects unknown ones', () => {

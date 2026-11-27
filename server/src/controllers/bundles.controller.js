@@ -1,7 +1,7 @@
-/** Purpose: request handlers for bundles: list/search, scanner lookup, get one, create (generates the ID used in the barcode / QR code) and edit. */
+/** Purpose: request handlers for bundles: list/search, scanner lookup, get one, create (assigns the number used in the barcode / QR code) and edit. */
 import { COLLECTIONS as C } from '../database/collections.js';
 import { BUNDLE_STATUSES, parseBundle, withAvg } from '../models/bundle.model.js';
-import { HttpError, escapeRegex, newBundleId, oneOf } from '../utils/index.js';
+import { HttpError, escapeRegex, nextBundleId, oneOf } from '../utils/index.js';
 
 const NO_ID = { projection: { _id: 0 } };
 
@@ -24,11 +24,14 @@ export function bundlesController({ db }) {
       res.json((await bundles.find(filter, NO_ID).sort({ createdAt: -1 }).toArray()).map(withAvg));
     },
 
-    /** Barcode / scanner lookup: exact bundle ID, or a unique prefix of at least 4 characters. */
+    /**
+     * Barcode / scanner lookup: exact bundle ID. Older letter-and-digit IDs also match a unique prefix of
+     * at least 4 characters; numbers must match in full, or 1002 could open bundle 10020.
+     */
     async lookup(req, res) {
       const scan = req.params.scan.trim().toLowerCase();
       let found = await bundles.findOne({ bundleId: scan }, NO_ID);
-      if (!found && scan.length >= 4) {
+      if (!found && scan.length >= 4 && !/^d+$/.test(scan)) {
         const matches = await bundles.find({ bundleId: { $regex: `^${escapeRegex(scan)}` } }, NO_ID).limit(2).toArray();
         if (matches.length > 1) throw new HttpError(409, 'Several bundles match that scan. Enter more characters.');
         found = matches[0];
@@ -44,10 +47,10 @@ export function bundlesController({ db }) {
       res.json(withAvg(b));
     },
 
-    /** Adds a bundle. The server generates the unique bundle ID, which is also its barcode / QR value. */
+    /** Adds a bundle. The server assigns the next bundle number, which is also its barcode / QR value. */
     async create(req, res) {
       const data = await parseBundle(req.body, products, { creating: true });
-      const bundleId = newBundleId();
+      const bundleId = await nextBundleId(db);
       const doc = { bundleId, barcode: bundleId, ...data, createdAt: new Date() };
       await bundles.insertOne(doc);
       delete doc._id;

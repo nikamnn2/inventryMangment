@@ -95,18 +95,32 @@ describe('BundlesComponent', () => {
     expect(print).toHaveBeenCalled();
   });
 
+  it('prints the details as a table, with the batch and date made from the packing date', () => {
+    const fixture = TestBed.createComponent(BundlesComponent);
+    const c = fixture.componentInstance as any;
+    c.label.set({ id: '78b54792f27734c0', code: 'AL-1001', pieces: 10, weight: 30, packed: '2026-11-26', status: 'Packed', rack: '' });
+    fixture.detectChanges();
+    const rows = [...fixture.nativeElement.querySelectorAll('.sticker .st-row')].map((r: any) => r.textContent.replace(/\s+/g, ''));
+    expect(rows[0]).toBe('BUNDLEID:78b54792f27734c0');
+    expect(rows[2]).toBe('PCS:10AVGWT:3.000');
+    expect(rows[3]).toBe('TOTALWT:30.00Kg');
+    expect(rows[5]).toBe('BATCH:B-261126MFG:26-11-26');
+    expect(rows.length).toBe(6);
+    expect([c.batch(''), c.shortDate('')]).toEqual(['-', '-']);
+  });
+
   it('prints the rack as the sticker label, and no label line for an empty rack', () => {
     const fixture = TestBed.createComponent(BundlesComponent);
     const c = fixture.componentInstance as any;
     const bundle = { id: 'x1', code: 'AL-1001', pieces: 1, weight: 1, packed: '2026-11-26', status: 'Packed', rack: 'BLACK' };
-    const note = () => fixture.nativeElement.querySelector('.sticker .st-label')?.textContent.replace(/\s+/g, ' ').trim() ?? null;
+    const note = () => fixture.nativeElement.querySelector('.sticker .st-label')?.textContent.replace(/\s+/g, '') ?? null;
     c.label.set(bundle);
     fixture.detectChanges();
-    expect(note()).toBe('Label: Black');
+    expect(note()).toBe('LABEL:Black');
     for (const [rack, printed] of [['black', 'Black'], ['  MATT BLACK ', 'Matt black'], ['a-01', 'A-01']]) {
       c.label.set({ ...bundle, rack });
       fixture.detectChanges();
-      expect(note()).toBe('Label: ' + printed);
+      expect(note()).toBe('LABEL:' + printed.replace(' ', ''));
     }
     for (const rack of ['', '—', '-']) {
       c.label.set({ ...bundle, rack });

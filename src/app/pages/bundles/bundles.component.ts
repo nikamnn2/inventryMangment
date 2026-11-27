@@ -30,7 +30,7 @@ export class BundlesComponent {
 
   constructor() {
     // the sticker is hidden until printing, so its fonts must be fetched ahead of the print window
-    for (const font of ['400 16px Inconsolata', '700 16px Inconsolata', '700 16px Arimo']) {
+    for (const font of ['700 16px Arimo']) {
       void globalThis.document?.fonts?.load(font).catch(() => undefined);
     }
   }
@@ -47,6 +47,18 @@ export class BundlesComponent {
   protected firstCapital(text: string): string {
     const value = text.trim();
     return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
+
+  /** "2026-11-26" as "26-11-26", the way the sticker shows the manufacturing date. */
+  protected shortDate(date: string): string {
+    const [year, month, day] = date.slice(0, 10).split('-');
+    return day ? `${day}-${month}-${year.slice(2)}` : '-';
+  }
+
+  /** The batch number on the sticker, made from the packing date: 26 Nov 2026 is "B-261126". */
+  protected batch(date: string): string {
+    const short = this.shortDate(date);
+    return short === '-' ? '-' : 'B-' + short.replaceAll('-', '');
   }
 
   /** Average weight per piece shown in the form. */

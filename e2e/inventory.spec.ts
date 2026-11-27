@@ -96,7 +96,7 @@ test.describe('Backend persistence', () => {
     await page.locator('input[name=weight]').fill('25');
     await page.getByRole('button', { name: 'Save bundle' }).click();
     await expect(page.locator('table.tbl tbody tr')).toHaveCount(9);
-    await expect(page.locator('table.tbl tbody tr').first().locator('td.mono')).toHaveText(/^[0-9a-f]{16}$/);
+    await expect(page.locator('table.tbl tbody tr').first().locator('td.mono')).toHaveText(/^d+$/);
   });
 
   test('stock and report CSV exports download from the API', async ({ page }) => {

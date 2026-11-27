@@ -112,13 +112,27 @@ describe('products', () => {
 });
 
 describe('bundles', () => {
-  it('creates a bundle with a generated unique ID and matching barcode', async () => {
+  it('creates a bundle with the next numeric ID and matching barcode', async () => {
     const res = await post('/api/bundles', { dieNo: 'AL-1001', pieces: 10, weight: 55 });
     assert.equal(res.status, 201);
-    assert.match(res.body.bundleId, /^[0-9a-f]{16}$/);
+    assert.equal(res.body.bundleId, '1001');
     assert.equal(res.body.barcode, res.body.bundleId);
     assert.equal(res.body.avgWeight, 5.5);
     assert.equal(res.body.status, 'Packed');
+  });
+
+  it('numbers bundles in order, with no repeats or gaps when saved together or after a rejected save', async () => {
+    const body = { dieNo: 'AL-1001', pieces: 1, weight: 1 };
+    const saved = await Promise.all(Array.from({ length: 10 }, () => post('/api/bundles', body)));
+    assert.deepEqual(saved.map(r => r.body.bundleId).sort(), Array.from({ length: 10 }, (_, i) => String(1001 + i)));
+    assert.equal((await post('/api/bundles', { ...body, dieNo: 'NOPE' })).status, 400);
+    assert.equal((await post('/api/bundles', body)).body.bundleId, '1011');
+  });
+
+  it('does not open a longer bundle number from a partial numeric scan', async () => {
+    await post('/api/bundles', { dieNo: 'AL-1001', pieces: 1, weight: 1 });
+    assert.equal((await get('/api/bundles/lookup/1001')).body.bundleId, '1001');
+    assert.equal((await get('/api/bundles/lookup/100')).status, 404);
   });
 
   it('validates required fields and unknown products', async () => {

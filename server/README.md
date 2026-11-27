@@ -119,8 +119,8 @@ All routes except `/api/health` and `POST /api/auth/login` need `Authorization: 
 | --- | --- |
 | `POST /api/auth/login`, `GET /api/auth/me` | Sign in (JWT), current user |
 | `GET/POST /api/products`, `GET/PUT /api/products/:dieNo` | Product master. Die No is unique (409 on duplicate). Editing a Die No keeps bundles linked |
-| `GET/POST /api/bundles`, `GET/PUT /api/bundles/:bundleId` | Bundles. The server generates the unique bundle ID; the barcode value is that same ID. Average weight is calculated |
-| `GET /api/bundles/lookup/:scan` | Barcode / scanner lookup by full ID or a unique prefix (404 not found, 409 ambiguous) |
+| `GET/POST /api/bundles`, `GET/PUT /api/bundles/:bundleId` | Bundles. The server assigns a numeric, auto-incrementing bundle ID (1001, 1002, ...); the barcode value is that same ID. Average weight is calculated |
+| `GET /api/bundles/lookup/:scan` | Barcode / scanner lookup by full ID; older non-numeric IDs also match a unique prefix (404 not found, 409 ambiguous) |
 | `POST /api/sales` | `{ bundleId, quantity, customer? }` Deducts pieces, recalculates weight, sets status to Sold at zero, creates the bill |
 | `GET /api/sales`, `GET /api/sales/:billNo` | Sales history and bill detail |
 | `GET /api/stock`, `GET /api/stock/export.csv` | Stock by product with filters `q`, `state` (all/available/sold), `dieNo` |
